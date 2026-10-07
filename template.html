@@ -1,0 +1,992 @@
+<title>EU5 Formable Nations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an atlas index. Filters on the left like a map legend, the register of nations as a table, a dossier drawer for each nation. */
+:root {
+  --paper: #eef1ef; --sheet: #fbfcfa; --sheet-2: #e4e9e6; --ink: #1d2a33; --ink-2: #566670;
+  --rule: #cdd6d2; --gilt: #9a6b12; --gilt-ink: #ffffff; --chip: #dfe6e2;
+  --good: #2c7a3f; --raw: #66757d; --shade: rgba(29, 42, 51, .08);
+  --t1: #7a8794; --t2: #4f8a5b; --t3: #3f6fb0; --t4: #8a4fb0; --t5: #b0473f; --tier-ink: #ffffff;
+  --display: "Cormorant Garamond", "Iowan Old Style", Georgia, "Noto Serif", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", "Noto Sans", "PingFang SC", "Hiragino Sans", "Malgun Gothic", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f161b; --sheet: #151f26; --sheet-2: #1c2932; --ink: #e5ece8; --ink-2: #98a8b0;
+    --rule: #2a3a44; --gilt: #d9aa52; --gilt-ink: #17130a; --chip: #22313b;
+    --good: #7cc98b; --raw: #9aa9b1; --shade: rgba(0, 0, 0, .35);
+    --t1: #8f9cab; --t2: #5fae71; --t3: #5f92d8; --t4: #a87bd6; --t5: #d6675d; --tier-ink: #0f161b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f161b; --sheet: #151f26; --sheet-2: #1c2932; --ink: #e5ece8; --ink-2: #98a8b0;
+  --rule: #2a3a44; --gilt: #d9aa52; --gilt-ink: #17130a; --chip: #22313b;
+  --good: #7cc98b; --raw: #9aa9b1; --shade: rgba(0, 0, 0, .35);
+  --t1: #8f9cab; --t2: #5fae71; --t3: #5f92d8; --t4: #a87bd6; --t5: #d6675d; --tier-ink: #0f161b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 var(--body); padding-inline: 16px; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gilt); outline-offset: 2px; }
+.page { max-width: 1400px; margin: 0 auto; padding-block: 20px 40px; }
+header { display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+.modlink { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 13px; color: var(--gilt); text-decoration: none; }
+.modlink:hover { text-decoration: underline; }
+h1 { font: 700 clamp(26px, 4vw, 38px)/1.05 var(--display); margin: 0 0 4px; letter-spacing: .2px; text-wrap: balance; }
+.sub { color: var(--ink-2); font-size: 13px; }
+.tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tools select, .tools button { border: 1px solid var(--rule); background: var(--sheet); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.layout > * { min-width: 0; }
+aside, main, details.help { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; }
+aside { padding: 14px; align-self: start; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 900px) { aside { position: static; } }
+.fgroup { margin-bottom: 14px; }
+.ftitle { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--ink-2); margin-bottom: 6px; font-weight: 600; }
+input[type=search], aside select { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--sheet-2); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--rule); background: var(--chip); padding: 4px 10px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+.chip[aria-pressed="true"] { background: var(--gilt); color: var(--gilt-ink); border-color: var(--gilt); }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; margin: 5px 0; cursor: pointer; }
+.reset { width: 100%; padding: 7px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; cursor: pointer; }
+.reset:hover { background: var(--sheet-2); }
+main { overflow: hidden; }
+.bar { display: flex; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; color: var(--ink-2); font-size: 13px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--ink-2); cursor: pointer; white-space: nowrap; user-select: none; background: var(--sheet); font-weight: 600; }
+th[aria-sort="ascending"]::after { content: " ▲"; } th[aria-sort="descending"]::after { content: " ▼"; }
+tbody tr { cursor: pointer; }
+tbody tr:hover, tbody tr.sel { background: var(--sheet-2); }
+tbody tr.sel { box-shadow: inset 3px 0 0 var(--gilt); }
+.name { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+.sw { width: 14px; height: 14px; border-radius: 2px; flex: none; box-shadow: 0 0 0 1px var(--shade), inset 0 0 0 1px var(--shade); }
+.nm { font-weight: 500; }
+.tag { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.tier { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 4px; font: 700 13px/1 var(--mono); color: var(--tier-ink); }
+.t1 { background: var(--t1); } .t2 { background: var(--t2); } .t3 { background: var(--t3); } .t4 { background: var(--t4); } .t5 { background: var(--t5); }
+.rule { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
+.muted { color: var(--ink-2); }
+.small { font-size: 12px; }
+.gilt { color: var(--gilt); font-size: 12px; white-space: nowrap; font-weight: 500; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.variant { font-size: 11px; color: var(--gilt); margin-left: 6px; }
+.empty { padding: 30px; text-align: center; color: var(--ink-2); }
+.fixed-mode .fo { display: none !important; }
+#tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#tabs .chip { padding: 5px 8px; font-size: 13px; line-height: 1.2; text-align: center; white-space: normal; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#tabs .chip .cnt { font: 500 11px var(--mono); opacity: .75; }
+.linkchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.linkchip { border: 1px solid var(--rule); background: var(--sheet); border-radius: 4px; padding: 2px 8px; font-size: 13px; cursor: pointer; }
+.linkchip:hover { border-color: var(--gilt); }
+.grpbadge { border: 1px solid var(--rule); background: var(--chip); color: var(--ink-2); border-radius: 4px; padding: 0 6px;
+  font-size: 11px; margin-left: 6px; cursor: pointer; vertical-align: 1px; }
+.grpbadge:hover { border-color: var(--gilt); color: var(--ink); }
+.cellbtn { border: 0; background: none; padding: 0; color: inherit; cursor: pointer; text-align: left; text-decoration: underline dotted var(--ink-2); }
+.cellbtn:hover { color: var(--gilt); }
+.filterpill { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--gilt); border-radius: 999px; padding: 1px 8px; color: var(--ink); }
+.filterpill button { border: 0; background: none; cursor: pointer; padding: 0; color: var(--ink-2); }
+.linkchip b { font: 500 11px var(--mono); color: var(--ink-2); margin-left: 4px; }
+.loading { padding: 40px; text-align: center; color: var(--ink-2); }
+@media (max-width: 640px) {
+  th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(6), td:nth-child(6) { display: none; }
+  th, td { padding: 8px; }
+  .name { min-width: 0; }
+}
+details.help { padding: 10px 14px; margin-bottom: 14px; }
+details.help summary { cursor: pointer; font-weight: 600; }
+details.help p { max-width: 75ch; }
+.ranks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }
+.ranks ul { margin: 0; padding-left: 18px; font-size: 14px; }
+.drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(780px, 100%); overflow-y: auto; z-index: 20;
+  background: var(--sheet); border-left: 1px solid var(--rule); padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  transform: translateX(100%); visibility: hidden; transition: transform .2s ease, visibility .2s; }
+.drawer.open { transform: none; visibility: visible; box-shadow: -8px 0 30px var(--shade); }
+.backdrop { position: fixed; inset: 0; background: var(--shade); z-index: 19; }
+@media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
+.dhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.dhead h2 { margin: 0; font: 700 30px/1.1 var(--display); }
+.dhead .sw { width: 22px; height: 22px; }
+.dback { margin-left: auto; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--rule); background: transparent;
+  cursor: pointer; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); }
+.dback:hover { border-color: var(--gilt); color: var(--gilt); }
+.dback + .close { margin-left: 6px; }
+.close { margin-left: auto; border: 1px solid var(--rule); background: transparent; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.desc { font: italic 600 17px/1.45 var(--display); color: var(--ink-2); max-width: 72ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; margin-top: 12px; }
+.cards > * { min-width: 0; }
+.card { background: var(--sheet-2); border-radius: 8px; padding: 12px 14px; }
+.card h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--ink-2); font-weight: 600; }
+.wide { grid-column: 1 / -1; }
+ul.tree { list-style: none; margin: 0; padding-left: 0; }
+ul.tree ul.tree { padding-left: 14px; border-left: 2px solid var(--rule); margin: 3px 0 3px 4px; }
+ul.tree li { margin: 3px 0; overflow-wrap: anywhere; }
+.k-group > span, .k-if > span { font-weight: 600; }
+.k-tooltip > span { font-style: italic; }
+.k-good > span { color: var(--good); }
+.k-raw > span { color: var(--raw); font-family: var(--mono); font-size: 13px; }
+.k-rank > span { color: var(--gilt); font-weight: 600; }
+.k-orig > span, .orig { color: var(--t5); }
+.pill { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px; border-radius: 4px; background: var(--chip); font-size: 13px; }
+.pillbtn { border: 1px solid transparent; cursor: pointer; font: inherit; font-size: 13px; color: inherit; }
+.pillbtn:hover { border-color: var(--gilt); }
+.pill b { font: 500 11px var(--mono); color: var(--ink-2); margin-left: 4px; }
+.terr h4 { margin: 8px 0 4px; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+.meter { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin: 6px 0 4px; }
+.meter > i { display: block; height: 100%; background: var(--gilt); }
+.age { margin: 10px 0 4px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.roman { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 11px;
+  background: var(--gilt); color: var(--gilt-ink); font: 700 13px/1 var(--display); }
+.adv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40%); gap: 2px 14px; align-items: start;
+  border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px; margin: 4px 0; background: var(--sheet); font-size: 14px; line-height: 1.35; }
+.adv > * { min-width: 0; }
+.adv .an { font-weight: 600; }
+.adv .ab { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.adv .ab .b { color: var(--good); }
+.adv .ab .um { flex-basis: 100%; font-size: 12.5px; color: var(--good); padding-left: 12px; } .adv .ab .u { color: var(--gilt); }
+.adv .side { font-size: 12px; color: var(--ink-2); text-align: right; }
+.adv .side ul.tree { display: inline-block; text-align: left; }
+.adv .side ul.tree li { margin: 0; }
+.adv .ad { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); padding-top: 4px; }
+.dbtn { border: 0; background: none; padding: 0; color: var(--gilt); font-size: 12px; cursor: pointer; text-decoration: underline dotted; }
+.desc.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+@media (max-width: 560px) { .adv { grid-template-columns: minmax(0, 1fr); } .adv .side { text-align: left; } }
+</style>
+
+<div class="page">
+  <header>
+    <div>
+      <a class="modlink" id="modlink" href="https://steamcommunity.com/sharedfiles/filedetails/?id=3813746228" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"/></svg><span id="modtext"></span></a>
+      <h1 id="h1"></h1>
+      <div class="sub" id="stats"></div>
+    </div>
+    <div class="tools">
+      <label class="sub" for="lang" id="langLabel"></label>
+      <select id="lang"></select>
+      <button type="button" id="theme"></button>
+    </div>
+  </header>
+
+  <details class="help">
+    <summary id="helpTitle"></summary>
+    <div id="helpBody"></div>
+    <div class="ranks" id="ranks"></div>
+  </details>
+
+  <div class="layout">
+    <aside id="filters">
+      <div class="fgroup"><span class="ftitle" data-t="listTitle"></span><div class="chips" id="tabs">
+        <button type="button" class="chip" data-mode="f" aria-pressed="true"></button>
+        <button type="button" class="chip" data-mode="x" aria-pressed="false"></button>
+        <button type="button" class="chip" data-mode="c" aria-pressed="false"></button>
+        <button type="button" class="chip" data-mode="r" aria-pressed="false"></button></div></div>
+      <div class="fgroup"><label class="ftitle" for="q" data-t="search"></label><input type="search" id="q"></div>
+      <div class="fgroup fo"><span class="ftitle" data-t="tier"></span><div class="chips" id="tiers"></div></div>
+      <div class="fgroup fo"><span class="ftitle" data-t="rule"></span><div class="chips" id="rules"></div></div>
+      <div class="fgroup"><label class="ftitle" for="cont" id="contLabel"></label><select id="cont"></select></div>
+      <div class="fgroup">
+        <span class="ftitle" data-t="features"></span>
+        <label class="check fo"><input type="checkbox" id="fRank"> <span data-t="fRank"></span></label>
+        <label class="check fo"><input type="checkbox" id="fEff"> <span data-t="fEff"></span></label>
+        <label class="check fo"><input type="checkbox" id="fCap"> <span data-t="fCap"></span></label>
+        <label class="check fo"><input type="checkbox" id="fAllow"> <span data-t="fAllow"></span></label>
+        <label class="check"><input type="checkbox" id="fAdv"> <span data-t="fAdv"></span></label>
+        <label class="check fo"><input type="checkbox" id="fNoEvent"> <span data-t="fNoEvent"></span></label>
+      </div>
+      <div class="fgroup"><label class="ftitle" for="sort" data-t="sort"></label><select id="sort"></select></div>
+      <button class="reset" id="reset" type="button" data-t="reset"></button>
+    </aside>
+
+    <main>
+      <div class="bar"><span id="count"></span><span data-t="hint"></span></div>
+      <div class="bar" id="other" hidden></div>
+      <div class="tablewrap">
+        <table>
+          <thead id="headX" hidden><tr>
+            <th data-k="name" data-t="colName"></th><th data-k="rankLevel" data-t="colRank"></th><th data-k="cul" data-t="colCul"></th>
+            <th data-k="rel" data-t="colRel"></th><th data-k="cont" data-t="colCont"></th><th data-k="locs" data-t="colLocs"></th>
+            <th data-k="nadv" data-t="colAdv"></th>
+          </tr></thead>
+          <thead id="headR" hidden><tr>
+            <th data-k="name" data-t="colRelName"></th><th data-k="cont" data-t="colGroup"></th>
+            <th data-k="nadv" data-t="colAdv"></th><th data-k="nforms" data-t="colForms"></th><th data-k="nst" data-t="colStart"></th>
+          </tr></thead>
+          <thead id="headC" hidden><tr>
+            <th data-k="name" data-t="colCulName"></th><th data-k="cont" data-t="colGroup"></th><th data-k="lang" data-t="colLang"></th>
+            <th data-k="nadv" data-t="colAdv"></th><th data-k="nforms" data-t="colForms"></th><th data-k="nst" data-t="colStart"></th>
+          </tr></thead>
+          <thead id="headF"><tr>
+            <th data-k="name" data-t="colName"></th><th data-k="level" data-t="colTier"></th><th data-k="rule" data-t="colRule"></th>
+            <th data-k="cont" data-t="colCont"></th><th data-k="need" data-t="colTerr"></th><th data-k="nadv" data-t="colAdv"></th>
+            <th data-k="rank" data-t="colReward"></th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="loading" id="loading">…</div>
+        <div class="empty" id="empty" hidden></div>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="backdrop" id="backdrop" hidden></div>
+<section class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle"></section>
+
+<script>
+const EMBED = /*__EMBED__*/null;
+const DATA_REV = "__REV__"; // changes on every build so browsers never mix a new page with old data
+const LANGS = { english: "English", russian: "Русский", german: "Deutsch", french: "Français", spanish: "Español",
+  braz_por: "Português (Brasil)", polish: "Polski", turkish: "Türkçe", japanese: "日本語", korean: "한국어", simp_chinese: "简体中文" };
+const BROWSER = { en: "english", ru: "russian", de: "german", fr: "french", es: "spanish", pt: "braz_por", pl: "polish",
+  tr: "turkish", ja: "japanese", ko: "korean", zh: "simp_chinese" };
+
+const UI = {
+  russian: {
+    mod: "Хотите это прямо в игре? Вот мод", h1: "Формируемые страны", stats: (n, t, v) => `${n} стран · тиры ${t} · данные из файлов игры ${v}`, lang: "Язык", theme: "◐ Тема",
+    search: "Поиск", searchPh: "Название, тег, регион, культура, улучшение…", tier: "Тир", rule: "Правило", continent: "Континент", all: "Все",
+    features: "Особенности", fRank: "Повышает ранг", fEff: "Есть особые эффекты", fCap: "Столица может быть где угодно",
+    fAllow: "Есть доп. условия", fAdv: "Есть страновые улучшения", fNoEvent: "Скрыть «только событием»",
+    sort: "Сортировка", reset: "Сбросить фильтры", hint: "Нажмите на строку, чтобы открыть подробности",
+    colName: "Страна", colTier: "Тир", colRule: "Правило", colCont: "Континент", colTerr: "Территория", colAdv: "Улучш.", colReward: "Награда",
+    shown: (a, b) => `Показано: ${a} из ${b}`, empty: "Ничего не найдено — ослабьте фильтры.",
+    rules: { historical: "Историческое", plausible: "Правдоподобное", fantasy: "Фантазийное" },
+    sorts: { "level:desc": "Тир — по убыванию", "level:asc": "Тир — по возрастанию", "name:asc": "Название — А→Я",
+      "need:asc": "Нужно локаций — меньше", "need:desc": "Нужно локаций — больше", "frac:asc": "Требуемая доля — меньше",
+      "cont:asc": "Континент", "nadv:desc": "Страновых улучшений — больше" },
+    fAdvC: "Есть культурные улучшения", back: "Назад",
+    geoLv: { continent: "Континент", sub_continent: "Субконтинент", region: "Регион", area: "Область", province: "Провинция" },
+    geoLocs: n => `${n} лок.`, geoIn: "Входит в", geoKids: n => `Состав · ${n}`,
+    geoForms: n => `Формируемые страны, которым нужны эти земли · ${n}`, geoFormsNone: "Ни одной формируемой стране эти земли не нужны.",
+    geoOwners: n => `Владельцы на старте 1337 года · ${n}`, geoFree: n => `ничьих или невладеемых локаций: ${n}`,
+    geoHere: n => `${n} лок. здесь`, xcBadge: "+ условия",
+    xcHint: "Культура подходит, но у страны есть и другие условия появления (религия, теги, события и т.п.) — откройте карточку.", inLoc: "в локации", inCountry: "для страны", grpBadge: n => `группа: ${n}`,
+    grpTitle: n => `Общие улучшения группы · ${n}`, grpNote: "Их получает любая культура этой группы.",
+    grpNone: "У этой группы нет общих улучшений: улучшения её культур привязаны к отдельным культурам.",
+    grpCultures: n => `Культуры группы · ${n}`, grpShow: "Показать культуры группы в таблице", grpKind: "Группа культур",
+    langFilter: "Язык", clearFilter: "Сбросить", tabNames: { f: "Формируемые", x: "Без тира", c: "Культуры", r: "Религии" }, listTitle: "Список", tabs: { f: n => `Формируемые · ${n}`, x: n => `Нельзя сформировать · ${n}`, c: n => `Культуры · ${n}` },
+    listNames: { f: "формируемые", x: "нельзя сформировать", c: "культуры", r: "религии" }, cgroup: "Группа культур", rgroupL: "Группа религий",
+    colRelName: "Религия", statsR: n => `${n} религий: их улучшения, какие страны с ними можно сформировать и где они на старте`,
+    sortsR: { "nadv:desc": "Больше всего улучшений", "nforms:desc": "Больше всего формаблов с условием", "nst:desc": "Больше всего стран на старте",
+      "name:asc": "Название — А→Я", "cont:asc": "Группа" },
+    radvTitle: n => `Религиозные улучшения · ${n}`, radvNote: "Открываются в дереве развития, пока это религия вашей страны.",
+    rformsTitle: n => `Формаблы с условием на эту религию · ${n}`, rformsAny: n => `Ещё ${n} формаблов не требуют религии — их может сформировать страна любой религии.`,
+    rformsNone: "Нет формируемых стран, которым нужна именно эта религия (страны без требований к религии доступны всем).",
+    rstartTitle: n => `Страны с этой религией на старте · ${n}`, rstartNone: "Ни одна страна не начинает с этой религией.",
+    relTitle: "Нужные религии", relAny: "Подходит любая религия — условий по религии нет.",
+    rgrTitle: n => `Общие улучшения группы религий · ${n}`, rgrNote: "Их получает любая религия этой группы.",
+    rgrNone: "У этой группы нет общих улучшений.", rgrMembers: n => `Религии группы · ${n}`, rgrShow: "Показать религии группы в таблице",
+    rgrKind: "Группа религий", relGroupL: "Группа",
+    colCulName: "Культура", colGroup: "Группа", colLang: "Язык", colForms: "Формаблы с условием", colStart: "Стран на старте",
+    statsC: n => `${n} культур: их улучшения, какие страны они могут сформировать и где они на старте`,
+    sortsC: { "nadv:desc": "Больше всего улучшений", "nforms:desc": "Больше всего формаблов с условием", "nst:desc": "Больше всего стран на старте",
+      "name:asc": "Название — А→Я", "cont:asc": "Группа" },
+    cadvTitle: n => `Культурные улучшения · ${n}`, cadvNote: "Открываются в дереве развития, пока эта культура — основная культура вашей страны.",
+    formsTitle: n => `Формаблы с условием на эту культуру · ${n}`, formsAny: n => `Ещё ${n} формаблов не требуют культуры — их может сформировать страна любой культуры.`, formsNone: "Нет формируемых стран, которым нужна именно эта культура (страны без требований к культуре доступны всем).",
+    startTitle: n => `Страны с этой культурой на старте · ${n}`, startNone: "Ни одна страна не начинает с этой культурой.",
+    culTitle: "Нужные культуры", culAny: "Подходит любая культура — условий по культуре нет.", culMore: n => `и ещё ${n}`,
+    groupsL: "Группы", langL: "Язык",
+    fixedBtn: n => `Нельзя сформировать · ${n}`, colRank: "Ранг", colCul: "Культура", colRel: "Религия", colLocs: "Локаций в 1337",
+    statsX: n => `${n} стран на старте 1337 года без тира — сформировать их нельзя`,
+    sortsX: { "locs:desc": "Больше всего локаций", "name:asc": "Название — А→Я", "rankLevel:desc": "Ранг — по убыванию",
+      "nadv:desc": "Страновых улучшений — больше", "cont:asc": "Континент", "cul:asc": "Культура" },
+    fixedNote: "У этой страны нет тира: её нет в списке формируемых, поэтому сформировать её нельзя — можно только играть за неё с начала.",
+    startTier: l => `Если начать за неё, вы уже на тире ${l}: сформировать можно только страну тира выше ${l}.`,
+    otherFound: (n, name) => `Ещё ${n} в списке «${name}»`, otherShow: "Показать",
+    refTitle: n => `Государственные принципы · ${n}`, refShort: "пр.",
+    refNote: "Особые реформы правления этой страны. Обычно их сначала открывает решение, событие или улучшение.",
+    srcKind: { decision: "Решение", advance: "Улучшение", event: "Событие" }, srcUnknown: "Открывается особым условием", srcAlways: "Доступен сразу",
+    twinBadge: t => `≠ формируемая ${t}`, twinOpen: "Открыть",
+    twinFixedNote: (n, t) => `Не путать с формируемой страной «${n}» (${t}) — это другой тег с тем же названием.`,
+    twinFormNote: t => `Не путать со стартовой страной ${t} с тем же названием — её сформировать нельзя.`,
+    infoTitle: "На старте 1337 года", capital: "Столица", culture: "Культура", religion: "Религия", locsStart: "Локаций",
+    tierChip: (l, n) => `Тир ${l} · ${n}`, startBadge: "есть на старте",
+    startNote: "Эта страна существует на старте 1337 года. Сформировать её можно, когда её не станет и ваша страна подойдёт под условия (культуру и столицу можно сменить).", locs: (a, b, p) => `${a} из ${b} лок. · ${p}%`, eventOnly: "только событием или решением",
+    special: "особые эффекты", variant: "вариант",
+    helpTitle: "Что такое тир, правило и бонусы ранга",
+    help: `<p><b>Тир</b> — уровень формируемой страны (<code>level</code>, от 1 до 5). Сформировать можно только страну более высокого тира, чем текущая.</p>
+      <p><b>Правило</b> — в какой игровой настройке страна доступна: историческое — всегда, правдоподобное и фантазийное — если они разрешены в правилах игры.</p>
+      <p><b>Территория</b> — доля локаций из перечисленных земель, которой нужно владеть (моря, озёра и непроходимые земли не считаются). <b>Кто видит</b> — условие появления в списке. <b>Условия</b> — что нужно для кнопки «Сформировать».</p>
+      <p>Тир сам по себе бонусов не даёт. Ранг и награды дают эффекты конкретной страны, а страновые улучшения открываются в дереве развития после формирования. Бонусы рангов:</p>`,
+    noBonus: "нет бонусов", close: "Закрыть ✕", tierN: l => `Тир ${l}`,
+    terrTitle: "Требуемая территория", needOwn: (p, a, b) => `Нужно владеть <b>${p}%</b> локаций: <b>${a}</b> из <b>${b}</b>`,
+    capReq: "Столица должна быть в этих землях", capFree: "Столица может быть где угодно", ownNo: "Видна в списке, даже если вы там ничего не владеете",
+    eventNote: "Формируется только через событие или решение — кнопки формирования нет", noTerr: "Территория не задана списком",
+    potTitle: "Кто видит (potential)", potNone: "Без ограничений", allowTitle: "Условия формирования (allow)", allowNone: "Только территория",
+    effTitle: "Эффекты при формировании", effNone: "Новое имя, флаг и цвет — без особых эффектов",
+    rankBonus: n => `Бонусы ранга «${n}»`, advTitle: (t, n) => `Страновые улучшения ${t} · ${n}`,
+    advNote: n => `Открываются в дереве развития, когда вы играете или играли за ${n}.`, age: n => `Эпоха ${n.toLowerCase()}`,
+    requires: "Требуется", unlocks: "Открывает", extra: "Доп. условия:", descr: "Описание", loadFail: "Не удалось загрузить данные языка.",
+  },
+  english: {
+    mod: "Want this info inside the game? Here's a mod", h1: "Formable Nations", stats: (n, t, v) => `${n} nations · tiers ${t} · from the game files, version ${v}`, lang: "Language", theme: "◐ Theme",
+    search: "Search", searchPh: "Name, tag, region, culture, advance…", tier: "Tier", rule: "Rule", continent: "Continent", all: "All",
+    features: "Features", fRank: "Raises rank", fEff: "Has special effects", fCap: "Capital can be anywhere",
+    fAllow: "Has extra conditions", fAdv: "Has country advances", fNoEvent: "Hide event-only",
+    sort: "Sort", reset: "Clear filters", hint: "Select a row to open details",
+    colName: "Nation", colTier: "Tier", colRule: "Rule", colCont: "Continent", colTerr: "Territory", colAdv: "Adv.", colReward: "Reward",
+    shown: (a, b) => `Showing ${a} of ${b}`, empty: "No nations match. Loosen the filters.",
+    rules: { historical: "Historical", plausible: "Plausible", fantasy: "Fantasy" },
+    sorts: { "level:desc": "Tier, high to low", "level:asc": "Tier, low to high", "name:asc": "Name, A to Z",
+      "need:asc": "Locations needed, fewest", "need:desc": "Locations needed, most", "frac:asc": "Required share, lowest",
+      "cont:asc": "Continent", "nadv:desc": "Most country advances" },
+    fAdvC: "Has culture advances", back: "Back",
+    geoLv: { continent: "Continent", sub_continent: "Subcontinent", region: "Region", area: "Area", province: "Province" },
+    geoLocs: n => `${n} loc.`, geoIn: "Part of", geoKids: n => `Contains · ${n}`,
+    geoForms: n => `Formable nations that need these lands · ${n}`, geoFormsNone: "No formable nation needs these lands.",
+    geoOwners: n => `Owners at the 1337 start · ${n}`, geoFree: n => `unowned or non-ownable locations: ${n}`,
+    geoHere: n => `${n} loc. here`, xcBadge: "+ conditions",
+    xcHint: "The culture fits, but the nation has other conditions to appear (religion, tags, events and so on). Open it to see them.", inLoc: "in the location", inCountry: "for the country", grpBadge: n => `group: ${n}`,
+    grpTitle: n => `Shared group advances · ${n}`, grpNote: "Every culture in this group gets these.",
+    grpNone: "This group has no shared advances: its cultures' advances belong to individual cultures.",
+    grpCultures: n => `Cultures in the group · ${n}`, grpShow: "Show the group's cultures in the table", grpKind: "Culture group",
+    langFilter: "Language", clearFilter: "Clear", tabNames: { f: "Formable", x: "Can't be formed", c: "Cultures", r: "Religions" }, listTitle: "List", tabs: { f: n => `Formable · ${n}`, x: n => `Can't be formed · ${n}`, c: n => `Cultures · ${n}` },
+    listNames: { f: "formable", x: "can't be formed", c: "cultures", r: "religions" }, cgroup: "Culture group", rgroupL: "Religion group",
+    colRelName: "Religion", statsR: n => `${n} religions: their advances, which nations they can form and where they start`,
+    sortsR: { "nadv:desc": "Most advances", "nforms:desc": "Most formables requiring it", "nst:desc": "Most starting nations",
+      "name:asc": "Name, A to Z", "cont:asc": "Group" },
+    radvTitle: n => `Religious advances · ${n}`, radvNote: "Available in the advance tree while this is your nation's religion.",
+    rformsTitle: n => `Formables that require this religion · ${n}`, rformsAny: n => `${n} more formables have no religion requirement: a nation of any religion can form them.`,
+    rformsNone: "No formable nation requires this religion specifically (nations without religion requirements are open to all).",
+    rstartTitle: n => `Nations with this religion at the start · ${n}`, rstartNone: "No nation starts with this religion.",
+    relTitle: "Required religions", relAny: "Any religion: there are no religion conditions.",
+    rgrTitle: n => `Shared religion group advances · ${n}`, rgrNote: "Every religion in this group gets these.",
+    rgrNone: "This group has no shared advances.", rgrMembers: n => `Religions in the group · ${n}`, rgrShow: "Show the group's religions in the table",
+    rgrKind: "Religion group", relGroupL: "Group",
+    colCulName: "Culture", colGroup: "Group", colLang: "Language", colForms: "Formables requiring it", colStart: "Nations at start",
+    statsC: n => `${n} cultures: their advances, which nations they can form and where they start`,
+    sortsC: { "nadv:desc": "Most advances", "nforms:desc": "Most formables requiring it", "nst:desc": "Most starting nations",
+      "name:asc": "Name, A to Z", "cont:asc": "Group" },
+    cadvTitle: n => `Culture advances · ${n}`, cadvNote: "Available in the advance tree while this is your nation's primary culture.",
+    formsTitle: n => `Formables that require this culture · ${n}`, formsAny: n => `${n} more formables have no culture requirement: a nation of any culture can form them.`, formsNone: "No formable nation requires this culture specifically (nations without culture requirements are open to all).",
+    startTitle: n => `Nations with this culture at the start · ${n}`, startNone: "No nation starts with this culture.",
+    culTitle: "Required cultures", culAny: "Any culture: there are no culture conditions.", culMore: n => `and ${n} more`,
+    groupsL: "Groups", langL: "Language",
+    fixedBtn: n => `Can't be formed · ${n}`, colRank: "Rank", colCul: "Culture", colRel: "Religion", colLocs: "Locations in 1337",
+    statsX: n => `${n} nations at the 1337 start with no tier; they can't be formed`,
+    sortsX: { "locs:desc": "Most locations", "name:asc": "Name, A to Z", "rankLevel:desc": "Rank, high to low",
+      "nadv:desc": "Most country advances", "cont:asc": "Continent", "cul:asc": "Culture" },
+    fixedNote: "This nation has no tier: it isn't in the formable list, so it can't be formed. You can only play it from the start.",
+    startTier: l => `If you start as this nation, you are already tier ${l}: you can only form a nation above tier ${l}.`,
+    otherFound: (n, name) => `${n} more in the “${name}” list`, otherShow: "Show",
+    refTitle: n => `State principles · ${n}`, refShort: "pr.",
+    refNote: "Government reforms unique to this nation. Most of them are first unlocked by a decision, event or advance.",
+    srcKind: { decision: "Decision", advance: "Advance", event: "Event" }, srcUnknown: "Unlocked by a special condition", srcAlways: "Available right away",
+    twinBadge: t => `≠ formable ${t}`, twinOpen: "Open",
+    twinFixedNote: (n, t) => `Not the same as the formable nation ${n} (${t}): a different tag with the same name.`,
+    twinFormNote: t => `Not the same as the starting nation ${t} with the same name, which can't be formed.`,
+    infoTitle: "At the 1337 start", capital: "Capital", culture: "Culture", religion: "Religion", locsStart: "Locations",
+    tierChip: (l, n) => `Tier ${l} · ${n}`, startBadge: "exists at start",
+    startNote: "This nation exists at the 1337 start. You can form it once it no longer exists and your nation meets the conditions (culture and capital can be changed).", locs: (a, b, p) => `${a} of ${b} loc. · ${p}%`, eventOnly: "event or decision only",
+    special: "special effects", variant: "variant",
+    helpTitle: "What tier, rule and rank bonuses mean",
+    help: `<p><b>Tier</b> is the formable's level (<code>level</code>, 1 to 5). You can only form a nation of a higher tier than your current one.</p>
+      <p><b>Rule</b> is the game setting that allows it: historical ones are always available, plausible and fantasy ones only when the game rules allow them.</p>
+      <p><b>Territory</b> is the share of locations in the listed lands you must own (seas, lakes and impassable land don't count). <b>Who sees it</b> is the condition for appearing in the list. <b>Conditions</b> are what the Form button needs.</p>
+      <p>A tier gives no bonus by itself. Rank and rewards come from each nation's own effects, and country advances open in the advance tree once you have formed it. Rank bonuses:</p>`,
+    noBonus: "no bonuses", close: "Close ✕", tierN: l => `Tier ${l}`,
+    terrTitle: "Required territory", needOwn: (p, a, b) => `Own <b>${p}%</b> of the locations: <b>${a}</b> of <b>${b}</b>`,
+    capReq: "Your capital must be in these lands", capFree: "Your capital can be anywhere", ownNo: "Listed even if you own nothing there",
+    eventNote: "Formed only through an event or decision; there is no Form button", noTerr: "No territory list",
+    potTitle: "Who sees it (potential)", potNone: "No restrictions", allowTitle: "Conditions to form (allow)", allowNone: "Territory only",
+    effTitle: "Effects on forming", effNone: "New name, flag and color, no special effects",
+    rankBonus: n => `${n} rank bonuses`, advTitle: (t, n) => `Country advances ${t} · ${n}`,
+    advNote: n => `Available in the advance tree while you are or were ${n}.`, age: n => `Age of ${n}`,
+    requires: "Requires", unlocks: "Unlocks", extra: "Extra conditions:", descr: "Description", loadFail: "Couldn't load this language's data.",
+  },
+};
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+let lang = store.get("eu5f-lang");
+if (!LANGS[lang]) {
+  lang = "english";
+  for (const l of navigator.languages || [navigator.language || "en"]) {
+    const m = BROWSER[String(l).toLowerCase().split("-")[0]];
+    if (m) { lang = m; break; }
+  }
+}
+const u = () => UI[lang] || UI.english;
+let DATA = null, items = [];
+const cache = {};
+const state = { clang: "", mode: "f", sortX: "locs:desc", sortC: "nadv:desc", sortR: "nadv:desc", q: "", tiers: new Set(), rules: new Set(), cont: "", fRank: false, fEff: false, fCap: false, fAllow: false,
+  fAdv: false, fNoEvent: false, sort: "level:desc", sel: null };
+
+async function loadLang(l) {
+  if (EMBED) return EMBED[l] || EMBED.english;
+  if (cache[l]) return cache[l];
+  const r = await fetch(`data/${l}.json?v=${DATA_REV}`);
+  if (!r.ok) throw new Error(r.status);
+  return (cache[l] = await r.json());
+}
+
+function prepare() {
+  items = DATA.items;
+  const nameCount = {};
+  for (const it of items) nameCount[it.name] = (nameCount[it.name] || 0) + 1;
+  const flat = n => n.t + " " + (n.c || []).map(flat).join(" ");
+  for (const it of items) {
+    it.variant = nameCount[it.name] > 1 ? it.id.replace(/_f$/, "") : "";
+    it.hay = [it.name, it.tag, it.cont, ...Object.values(it.terr).flat().map(e => e.n), ...it.pot.map(flat), ...it.allow.map(flat),
+      ...it.adv.map(a => a.n), ...(it.ref || []).map(r => r.n)].join(" ").toLowerCase();
+    it.rankLevel = Math.max(0, ...it.ranks.map(r => DATA.ranks[r]?.level || 0));
+  }
+  const byName = {};
+  for (const it of items) (byName[it.name] ||= []).push(it);
+  for (const it of DATA.fixed || []) it.twin = (byName[it.name] || [])[0] || null;
+  for (const it of items) it.twinFixed = (DATA.fixed || []).find(x => x.name === it.name) || null;
+  DATA.relByKey = {}; DATA.rgrByKey = {};
+  for (const g of DATA.rgroups || []) DATA.rgrByKey[g.key] = g;
+  for (const r of DATA.religions || []) {
+    DATA.relByKey[r.key] = r;
+    r.advObjs = r.adv.map(id => DATA.radv[id]).filter(Boolean);
+    r.cont = r.group; r.nforms = r.forms.length; r.nst = r.st.length;
+    r.hay = [r.name, r.key, r.group, ...r.advObjs.map(a => a.n)].join(" ").toLowerCase();
+  }
+  DATA.grpByKey = {};
+  for (const g of DATA.groups || []) DATA.grpByKey[g.key] = g;
+  DATA.culByKey = {};
+  for (const c of DATA.cultures || []) {
+    DATA.culByKey[c.key] = c;
+    c.advObjs = c.adv.map(id => DATA.cadv[id]).filter(Boolean);
+    c.cont = c.groups[0] || "—"; c.nforms = c.forms.length; c.nst = c.st.length;
+    c.hay = [c.name, c.key, c.lang, ...c.groups, ...c.advObjs.map(a => a.n)].join(" ").toLowerCase();
+  }
+  DATA.byTag = {};
+  for (const it of DATA.fixed || []) DATA.byTag[it.tag] = it;
+  for (const it of items) if (!DATA.byTag[it.tag] || !DATA.byTag[it.tag].locs) DATA.byTag[it.tag] = DATA.byTag[it.tag] || it;
+  DATA.byId = {};
+  for (const it of items) DATA.byId[it.id] = it;
+  for (const it of DATA.fixed || []) it.hay = [it.name, it.tag, it.cul, it.rel, it.cap, it.cont, it.rank, ...it.adv.map(a => a.n), ...(it.ref || []).map(r => r.n)].join(" ").toLowerCase();
+}
+const fixedMode = () => state.mode === "x";
+const cultMode = () => state.mode === "c";
+const relMode = () => state.mode === "r";
+const listOf = m => m === "x" ? (DATA.fixed || []) : m === "c" ? (DATA.cultures || []) : m === "r" ? (DATA.religions || []) : items;
+const curList = () => listOf(state.mode);
+const sortKey = () => relMode() ? state.sortR : cultMode() ? state.sortC : fixedMode() ? state.sortX : state.sort;
+function setSort(v) { if (relMode()) state.sortR = v; else if (cultMode()) state.sortC = v; else if (fixedMode()) state.sortX = v; else state.sort = v; }
+
+function chips(el, values, label, set) {
+  el.innerHTML = values.map(v => `<button type="button" class="chip" aria-pressed="${set.has(v)}" data-v="${esc(v)}">${esc(label(v))}</button>`).join("");
+}
+
+function paintChrome() {
+  const t = u();
+  document.documentElement.lang = { simp_chinese: "zh", braz_por: "pt", japanese: "ja", korean: "ko" }[lang] || lang.slice(0, 2);
+  document.title = `EU5 · ${t.h1}`;
+  $("#h1").textContent = `${t.h1} · Europa Universalis V`;
+  $("#langLabel").textContent = t.lang;
+  $("#modtext").textContent = t.mod;
+  $("#theme").textContent = t.theme;
+  document.querySelectorAll("[data-t]").forEach(el => { el.textContent = t[el.dataset.t]; });
+  $("#q").placeholder = t.searchPh;
+  $("#sort").innerHTML = Object.entries(relMode() ? t.sortsR : cultMode() ? t.sortsC : fixedMode() ? t.sortsX : t.sorts).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  $("#sort").value = sortKey();
+  document.body.classList.toggle("fixed-mode", state.mode !== "f");
+  $("#headF").hidden = state.mode !== "f"; $("#headX").hidden = state.mode !== "x"; $("#headC").hidden = state.mode !== "c"; $("#headR").hidden = state.mode !== "r";
+  $("#contLabel").textContent = relMode() ? t.rgroupL : cultMode() ? t.cgroup : t.continent;
+  document.querySelector('[data-t="fAdv"]').textContent = (cultMode() || relMode()) ? t.fAdvC : t.fAdv;
+  $("#helpTitle").textContent = t.helpTitle;
+  $("#helpBody").innerHTML = t.help;
+  if (!DATA) return;
+  const levels = [...new Set(items.map(i => i.level))].sort();
+  chips($("#tiers"), levels, l => t.tierChip(l, items.filter(i => i.level === l).length), state.tiers);
+  chips($("#rules"), Object.keys(t.rules), r => t.rules[r], state.rules);
+  document.querySelectorAll("#tabs .chip").forEach(b => {
+    b.innerHTML = `${esc(t.tabNames[b.dataset.mode])}<span class="cnt">${listOf(b.dataset.mode).length}</span>`;
+    b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode));
+  });
+  const conts = [...new Set(cultMode() ? curList().flatMap(i => i.groups) : curList().map(i => i.cont))].sort((a, b) => a.localeCompare(b));
+  if (!conts.includes(state.cont)) state.cont = "";
+  $("#cont").innerHTML = `<option value="">${esc(t.all)}</option>` + conts.map(c => `<option${c === state.cont ? " selected" : ""}>${esc(c)}</option>`).join("");
+  $("#stats").textContent = relMode() ? t.statsR(curList().length) : cultMode() ? t.statsC(curList().length) : fixedMode() ? t.statsX((DATA.fixed || []).length) : t.stats(items.length, levels.join(", "), DATA.version);
+  $("#ranks").innerHTML = Object.values(DATA.ranks).sort((a, b) => b.level - a.level)
+    .map(r => `<div class="card"><h3>${esc(r.name)}</h3><ul>${r.mods.map(m => `<li>${esc(m)}</li>`).join("") || `<li>${esc(t.noBonus)}</li>`}</ul></div>`).join("");
+}
+
+function filtered() {
+  const q = state.q.trim().toLowerCase();
+  const out = relMode() ? curList().filter(i => (!q || i.hay.includes(q)) && (!state.cont || i.group === state.cont) && (!state.fAdv || i.nadv))
+    : cultMode() ? curList().filter(i => (!q || i.hay.includes(q)) && (!state.cont || i.groups.includes(state.cont)) && (!state.clang || i.lang === state.clang) && (!state.fAdv || i.nadv))
+    : fixedMode() ? curList().filter(i => (!q || i.hay.includes(q)) && (!state.cont || i.cont === state.cont) && (!state.fAdv || i.nadv)) : items.filter(i =>
+    (!q || i.hay.includes(q)) && (!state.tiers.size || state.tiers.has(i.level)) && (!state.rules.size || state.rules.has(i.rule)) &&
+    (!state.cont || i.cont === state.cont) && (!state.fRank || i.ranks.length) && (!state.fEff || i.eff.length) &&
+    (!state.fCap || !i.cap) && (!state.fAllow || i.allow.length) && (!state.fNoEvent || !i.event) && (!state.fAdv || i.nadv));
+  const [k, dir] = sortKey().split(":");
+  const m = dir === "desc" ? -1 : 1;
+  const key = i => k === "rank" ? i.rankLevel : i[k];
+  return out.sort((a, b) => {
+    const x = key(a), y = key(b);
+    const c = typeof x === "string" ? x.localeCompare(y) : x - y;
+    return c * m || a.name.localeCompare(b.name);
+  });
+}
+
+function terrSummary(i) {
+  const t = u();
+  if (i.event) return `<span class="muted">${esc(t.eventOnly)}</span>`;
+  const all = Object.values(i.terr).flat();
+  const first = all.slice(0, 3).map(e => e.n).join(", ");
+  return `<div class="num">${esc(t.locs(i.need, i.total, Math.round(i.frac * 100)))}</div><div class="muted small">${esc(first)}${all.length > 3 ? ` +${all.length - 3}` : ""}</div>`;
+}
+
+function render() {
+  if (!DATA) return;
+  const t = u();
+  const list = filtered();
+  $("#count").innerHTML = esc(t.shown(list.length, curList().length)) + (cultMode() && state.clang
+    ? ` <span class="filterpill">${esc(t.langFilter)}: ${esc(state.clang)} <button type="button" id="clearLang" aria-label="${esc(t.clearFilter)}">✕</button></span>` : "");
+  const q = state.q.trim().toLowerCase();
+  const others = q ? ["f", "x", "c", "r"].filter(m => m !== state.mode).map(m => [m, listOf(m).filter(i => i.hay.includes(q))]).filter(([, l]) => l.length) : [];
+  $("#other").hidden = !others.length;
+  $("#other").innerHTML = others.map(([m, l]) => `<span>${esc(t.otherFound(l.length, t.listNames[m]))}: ${l.slice(0, 5).map(i => esc(i.name)).join(", ")}${l.length > 5 ? "…" : ""}
+    <button type="button" class="dbtn" data-mode="${m}">${esc(t.otherShow)}</button></span>`).join("");
+  $("#empty").textContent = t.empty;
+  $("#empty").hidden = list.length > 0;
+  if (relMode()) {
+    $("#rows").innerHTML = list.map(i => `
+    <tr data-id="${esc(i.id)}" class="${state.sel === i.id ? "sel" : ""}" tabindex="0">
+      <td><div class="name"><span class="sw" style="background:${i.color || "transparent"}"></span><div><div class="nm">${esc(i.name)}</div><div class="tag">${esc(i.key)}</div></div></div></td>
+      <td><button type="button" class="cellbtn" data-open="rgr.${esc(i.gk)}">${esc(i.group)}</button></td>
+      <td class="num">${i.nadv || `<span class="muted">—</span>`}</td><td class="num">${i.nforms || `<span class="muted">—</span>`}</td><td class="num">${i.nst || `<span class="muted">—</span>`}</td>
+    </tr>`).join("");
+  } else if (cultMode()) {
+    $("#rows").innerHTML = list.map(i => `
+    <tr data-id="${esc(i.id)}" class="${state.sel === i.id ? "sel" : ""}" tabindex="0">
+      <td><div class="name"><span class="sw" style="background:${i.color || "transparent"}"></span><div><div class="nm">${esc(i.name)}</div><div class="tag">${esc(i.key)}</div></div></div></td>
+      <td>${i.gk.map((g, n) => `<button type="button" class="cellbtn" data-open="grp.${esc(g)}">${esc(i.groups[n])}</button>`).join(", ")}</td>
+      <td>${i.lang ? `<button type="button" class="cellbtn" data-lang="${esc(i.lang)}">${esc(i.lang)}</button>` : ""}</td>
+      <td class="num">${i.nadv || `<span class="muted">—</span>`}</td><td class="num">${i.nforms || `<span class="muted">—</span>`}</td><td class="num">${i.nst || `<span class="muted">—</span>`}</td>
+    </tr>`).join("");
+  } else if (fixedMode()) {
+    $("#rows").innerHTML = list.map(i => `
+    <tr data-id="${esc(i.id)}" class="${state.sel === i.id ? "sel" : ""}" tabindex="0">
+      <td><div class="name"><span class="sw" style="background:${i.color || "transparent"}"></span><div><div class="nm">${esc(i.name)}</div><div class="tag">${esc(i.tag)}${i.twin ? `<span class="variant">${esc(t.twinBadge(i.twin.tag))}</span>` : ""}</div></div></div></td>
+      <td>${esc(i.rank) || `<span class="muted">—</span>`}</td><td>${i.ck && DATA.culByKey[i.ck] ? `<button type="button" class="cellbtn" data-open="cul.${esc(i.ck)}">${esc(i.cul)}</button>` : esc(i.cul)}</td><td>${i.rk && DATA.relByKey[i.rk] ? `<button type="button" class="cellbtn" data-open="rel.${esc(i.rk)}">${esc(i.rel)}</button>` : esc(i.rel)}</td><td>${contCell(i)}</td>
+      <td class="num">${i.locs}</td><td class="num">${i.nadv || `<span class="muted">—</span>`}${i.ref && i.ref.length ? `<span class="muted small"> +${i.ref.length} ${esc(t.refShort)}</span>` : ""}</td>
+    </tr>`).join("");
+  } else $("#rows").innerHTML = list.map(i => `
+    <tr data-id="${esc(i.id)}" class="${state.sel === i.id ? "sel" : ""}" tabindex="0">
+      <td><div class="name"><span class="sw" style="background:${i.color || "transparent"}"></span><div><div class="nm">${esc(i.name)}</div>
+        <div class="tag">${esc(i.tag)}${i.start ? `<span class="variant">${esc(t.startBadge)}</span>` : ""}${i.variant ? `<span class="variant">${esc(t.variant)} ${esc(i.variant)}</span>` : ""}</div></div></div></td>
+      <td><span class="tier t${i.level}">${i.level}</span></td>
+      <td><span class="rule">${esc(t.rules[i.rule] || i.rule)}</span></td>
+      <td>${contCell(i)}</td>
+      <td>${terrSummary(i)}</td>
+      <td class="num">${i.nadv || `<span class="muted">—</span>`}${i.ref && i.ref.length ? `<span class="muted small"> +${i.ref.length} ${esc(t.refShort)}</span>` : ""}</td>
+      <td>${i.ranks.length ? `<span class="gilt">↑ ${i.ranks.map(r => esc(DATA.ranks[r]?.name || r)).join(" / ")}</span>` : i.eff.length ? `<span class="muted small">${esc(t.special)}</span>` : ""}</td>
+    </tr>`).join("");
+  const [k, dir] = sortKey().split(":");
+  document.querySelectorAll("th").forEach(th => th.setAttribute("aria-sort", th.dataset.k === k ? (dir === "asc" ? "ascending" : "descending") : "none"));
+}
+
+function tree(nodes) {
+  if (!nodes || !nodes.length) return "";
+  return `<ul class="tree">${nodes.map(n => {
+    const k = (n.k || "").startsWith("rank:") ? "rank" : (n.k || "plain");
+    const label = !n.r ? `<span>${esc(n.t)}</span>`
+      : n.r.startsWith("lang:") ? `<span><button type="button" class="cellbtn" data-lang="${esc(n.r.slice(5))}">${esc(n.t)}</button></span>`
+      : `<span><button type="button" class="cellbtn" data-open="${esc(n.r)}">${esc(n.t)}</button></span>`;
+    return `<li class="k-${k}">${label}${tree(n.c)}</li>`;
+  }).join("")}</ul>`;
+}
+
+function unlockHtml(x) {
+  const t = u();
+  if (typeof x === "string") return `<span class="u">${esc(t.unlocks)}: ${esc(x)}</span>`;
+  const parts = [];
+  if (x.loc && x.loc.length) parts.push(`<span class="muted">${esc(t.inLoc)}:</span> ${x.loc.map(esc).join(", ")}`);
+  if (x.m && x.m.length) parts.push(`${x.loc && x.loc.length ? `<span class="muted">${esc(t.inCountry)}:</span> ` : ""}${x.m.map(esc).join(", ")}`);
+  return `<span class="u">${esc(t.unlocks)}: ${esc(x.t)}</span>${parts.length ? `<span class="um">${parts.join(" · ")}</span>` : ""}`;
+}
+
+function principles(i) {
+  const t = u();
+  if (!i.ref || !i.ref.length) return "";
+  const src = r => r.src.length ? r.src.map(s => `${esc(t.srcKind[s.k] || s.k)}: ${esc(s.n)}`).join(" · ") : (r.locked ? esc(t.srcUnknown) : esc(t.srcAlways));
+  return `<div class="card wide"><h3>${esc(t.refTitle(i.ref.length))}</h3><div class="muted small">${esc(t.refNote)}</div>` +
+    i.ref.map(r => `<div class="adv">
+      <div><div class="an">${esc(r.n)}</div>
+        ${r.g.map(g => `${g.if.length ? `<div class="muted small">${g.if.map(c => esc(c.t)).join(" ")}</div>` : ""}<div class="ab">${g.m.map(m => `<span class="b">${esc(m)}</span>`).join("")}</div>`).join("")}</div>
+      <div class="side"><div>${[r.gov, r.ageN && (UI[lang] ? t.age(r.ageN) : r.ageN)].filter(Boolean).map(esc).join(" · ")}${r.d ? ` · <button type="button" class="dbtn" aria-expanded="false">${esc(t.descr)}</button>` : ""}</div>
+        <div>${src(r)}</div>
+        ${r.cond.length === 1 && !r.cond[0].c ? `<div>${esc(t.extra)} ${esc(r.cond[0].t)}</div>` : r.cond.length ? `<div>${esc(t.extra)}</div>${tree(r.cond)}` : ""}</div>
+      ${r.d ? `<div class="ad" hidden>${esc(r.d)}</div>` : ""}</div>`).join("") + `</div>`;
+}
+
+function linkChips(list, max = 80) {
+  const t = u();
+  const shown = list.slice(0, max).map(x => `<button type="button" class="linkchip" data-open="${esc(x.id)}"${x.title ? ` title="${esc(x.title)}"` : ""}>${esc(x.label)}${x.b ? `<b>${esc(x.b)}</b>` : ""}</button>`).join("");
+  return `<div class="linkchips">${shown}${list.length > max ? `<span class="muted small">${esc(t.culMore(list.length - max))}</span>` : ""}</div>`;
+}
+function nationLink(tag) {
+  const fx = (DATA.fixed || []).find(x => x.tag === tag);
+  if (fx) return { id: fx.id, label: fx.name, b: tag };
+  const it = items.find(x => x.tag === tag);
+  return it ? { id: it.id, label: it.name, b: tag } : { id: "", label: tag };
+}
+function cultureCard(i) {
+  const t = u();
+  if (i.cul === undefined) return "";
+  if (i.cul === null) return `<div class="card"><h3>${esc(t.culTitle)}</h3><div class="muted">${esc(t.culAny)}</div></div>`;
+  const list = i.cul.map(k => DATA.culByKey[k]).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)).map(c => ({ id: c.id, label: c.name }));
+  return `<div class="card wide"><h3>${esc(t.culTitle)} · ${list.length}</h3>${linkChips(list)}</div>`;
+}
+function openGeo(key, push) {
+  const t = u(), d = $("#drawer"), g = DATA.geo[key];
+  const par = g.par && DATA.geo[g.par] ? [{ id: "geo." + g.par, label: DATA.geo[g.par].n, b: t.geoLv[DATA.geo[g.par].lv] }] : [];
+  const kids = g.kids.filter(k => DATA.geo[k]).map(k => ({ id: "geo." + k, label: DATA.geo[k].n, b: String(DATA.geo[k].c) }));
+  const forms = g.f.map(([id, n]) => DATA.byId[id] ? { id, label: DATA.byId[id].name + (DATA.byId[id].variant ? ` · ${t.variant} ${DATA.byId[id].variant}` : ""),
+    b: `${t.tierN(DATA.byId[id].level)} · ${t.geoHere(n)}` } : null).filter(Boolean);
+  const owners = g.o.map(([tag, n]) => { const x = nationLink(tag); return x.id ? { ...x, b: `${tag} · ${n}` } : null; }).filter(Boolean);
+  d.innerHTML = `
+    <div class="dhead"><h2 id="dtitle">${esc(g.n)}</h2><span class="tag">${esc(t.geoLv[g.lv] || g.lv)} · ${esc(key)} · ${esc(t.geoLocs(g.c))}</span>
+      ${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    ${par.length ? `<p class="small"><span class="muted">${esc(t.geoIn)}:</span> ${linkChips(par)}</p>` : ""}
+    <div class="cards">
+      <div class="card wide"><h3>${esc(t.geoForms(forms.length))}</h3>${forms.length ? linkChips(forms) : `<div class="muted">${esc(t.geoFormsNone)}</div>`}</div>
+      <div class="card wide"><h3>${esc(t.geoOwners(owners.length))}</h3>${linkChips(owners)}${g.free ? `<div class="muted small" style="margin-top:6px">${esc(t.geoFree(g.free))}</div>` : ""}</div>
+      ${kids.length ? `<div class="card wide"><h3>${esc(t.geoKids(kids.length))}</h3>${linkChips(kids, 120)}</div>` : ""}
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav("geo." + key);
+  $("#close").focus({ preventScroll: true });
+}
+
+function religionCard(i) {
+  const t = u();
+  if (i.rel === undefined) return "";
+  if (i.rel === null) return `<div class="card"><h3>${esc(t.relTitle)}</h3><div class="muted">${esc(t.relAny)}</div></div>`;
+  const list = i.rel.map(k => DATA.relByKey[k]).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)).map(r => ({ id: r.id, label: r.name }));
+  return `<div class="card wide"><h3>${esc(t.relTitle)} · ${list.length}</h3>${linkChips(list)}</div>`;
+}
+function openReligion(r, push) {
+  const t = u(), d = $("#drawer");
+  const forms = r.forms.map(id => DATA.byId[id]).filter(Boolean)
+    .sort((a, b) => (a.xc ? 1 : 0) - (b.xc ? 1 : 0) || a.level - b.level || a.name.localeCompare(b.name))
+    .map(f => ({ id: f.id, label: f.name + (f.variant ? ` · ${t.variant} ${f.variant}` : ""), b: t.tierN(f.level) }));
+  const st = r.st.map(nationLink).filter(x => x.id);
+  d.innerHTML = `
+    <div class="dhead"><span class="sw" style="background:${r.color || "transparent"}"></span><h2 id="dtitle">${esc(r.name)}</h2>
+      <span class="tag">${esc(r.key)}</span>${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    <p class="small"><span class="muted">${esc(t.relGroupL)}:</span> <button type="button" class="linkchip" data-open="rgr.${esc(r.gk)}">${esc(r.group)}</button></p>
+    <div class="cards">
+      ${advances({ adv: r.advObjs, tag: "", name: r.name }, t.radvTitle(r.advObjs.length), t.radvNote)}
+      <div class="card wide"><h3>${esc(t.rformsTitle(forms.length))}</h3>${forms.length ? linkChips(forms) : `<div class="muted">${esc(t.rformsNone)}</div>`}<div class="muted small">${esc(t.rformsAny(items.filter(f => f.rel == null).length))}</div></div>
+      <div class="card wide"><h3>${esc(t.rstartTitle(st.length))}</h3>${st.length ? linkChips(st, 150) : `<div class="muted">${esc(t.rstartNone)}</div>`}</div>
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav(r.id);
+  render();
+  $("#close").focus({ preventScroll: true });
+}
+function openRGroup(g, push) {
+  const t = u(), d = $("#drawer");
+  const advs = g.adv.map(id => DATA.radv[id]).filter(Boolean);
+  const mem = g.religions.map(k => DATA.relByKey[k]).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)).map(r => ({ id: r.id, label: r.name }));
+  d.innerHTML = `
+    <div class="dhead"><h2 id="dtitle">${esc(g.name)}</h2><span class="tag">${esc(t.rgrKind)} · ${esc(g.key)}</span>
+      ${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    <p><button type="button" class="linkchip" data-filter-rgroup="${esc(g.name)}">${esc(t.rgrShow)}</button></p>
+    <div class="cards">
+      ${advs.length ? advances({ adv: advs.map(a => ({ ...a, rgk: [], rgrp: [] })), tag: "", name: g.name }, t.rgrTitle(advs.length), t.rgrNote)
+        : `<div class="card wide"><h3>${esc(t.rgrTitle(0))}</h3><div class="muted">${esc(t.rgrNone)}</div></div>`}
+      <div class="card wide"><h3>${esc(t.rgrMembers(mem.length))}</h3>${linkChips(mem, 200)}</div>
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav(g.id);
+  $("#close").focus({ preventScroll: true });
+}
+
+function openGroup(g, push) {
+  const t = u(), d = $("#drawer");
+  const advs = g.adv.map(id => DATA.cadv[id]).filter(Boolean);
+  const cul = g.cultures.map(k => DATA.culByKey[k]).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)).map(c => ({ id: c.id, label: c.name }));
+  d.innerHTML = `
+    <div class="dhead"><h2 id="dtitle">${esc(g.name)}</h2><span class="tag">${esc(t.grpKind)} · ${esc(g.key)}</span>
+      ${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    <p><button type="button" class="linkchip" data-filter-group="${esc(g.name)}">${esc(t.grpShow)}</button></p>
+    <div class="cards">
+      ${advs.length ? advances({ adv: advs.map(a => ({ ...a, gk: [], grp: [] })), tag: "", name: g.name }, t.grpTitle(advs.length), t.grpNote)
+        : `<div class="card wide"><h3>${esc(t.grpTitle(0))}</h3><div class="muted">${esc(t.grpNone)}</div></div>`}
+      <div class="card wide"><h3>${esc(t.grpCultures(cul.length))}</h3>${linkChips(cul, 200)}</div>
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav(g.id);
+  $("#close").focus({ preventScroll: true });
+}
+
+function openCulture(c, push) {
+  const t = u(), d = $("#drawer");
+  const forms = c.forms.map(id => DATA.byId[id]).filter(Boolean)
+    .sort((a, b) => (a.xc ? 1 : 0) - (b.xc ? 1 : 0) || a.level - b.level || a.name.localeCompare(b.name))
+    .map(f => ({ id: f.id, label: f.name + (f.variant ? ` · ${t.variant} ${f.variant}` : ""),
+      b: t.tierN(f.level) + (f.xc ? ` · ${t.xcBadge}` : ""), title: f.xc ? t.xcHint : "" }));
+  const st = c.st.map(nationLink).filter(x => x.id);
+  d.innerHTML = `
+    <div class="dhead"><span class="sw" style="background:${c.color || "transparent"}"></span><h2 id="dtitle">${esc(c.name)}</h2>
+      <span class="tag">${esc(c.key)}</span>${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    <p class="small"><span class="muted">${esc(t.groupsL)}:</span> ${c.gk.map((g, n) => `<button type="button" class="linkchip" data-open="grp.${esc(g)}">${esc(c.groups[n])}</button>`).join(" ") || "—"}
+      · <span class="muted">${esc(t.langL)}:</span> ${c.lang ? `<button type="button" class="linkchip" data-lang="${esc(c.lang)}">${esc(c.lang)}</button>` : "—"}${c.dia ? ` <span class="muted">(${esc(c.dia.toLowerCase())})</span>` : ""}</p>
+    <div class="cards">
+      ${advances({ adv: c.advObjs, tag: "", name: c.name }, t.cadvTitle(c.advObjs.length), t.cadvNote)}
+      <div class="card wide"><h3>${esc(t.formsTitle(forms.length))}</h3>${forms.length ? linkChips(forms) : `<div class="muted">${esc(t.formsNone)}</div>`}<div class="muted small">${esc(t.formsAny(items.filter(f => f.cul == null).length))}</div></div>
+      <div class="card wide"><h3>${esc(t.startTitle(st.length))}</h3>${st.length ? linkChips(st) : `<div class="muted">${esc(t.startNone)}</div>`}</div>
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav(c.id);
+  render();
+  $("#close").focus({ preventScroll: true });
+}
+
+function advances(i, title, note) {
+  const t = u();
+  if (!i.adv.length) return "";
+  const byAge = {};
+  for (const a of i.adv) (byAge[a.age] ||= []).push(a);
+  return `<div class="card wide"><h3>${esc(title || t.advTitle(i.tag, i.adv.length))}</h3><div class="muted small">${esc(note || t.advNote(i.name))}</div>` +
+    Object.keys(byAge).sort((a, b) => a - b).map(age => `<div class="age"><span class="roman">${ROMAN[age] || age}</span>${esc(UI[lang] ? t.age(byAge[age][0].ageN) : byAge[age][0].ageN)}</div>` +
+      byAge[age].map(a => `<div class="adv">
+        <div><div class="an">${esc(a.n)}${(a.gk || []).map((g, n) => `<button type="button" class="grpbadge" data-open="grp.${esc(g)}">${esc(t.grpBadge(a.grp[n]))}</button>`).join("")}${(a.rgk || []).map((g, n) => `<button type="button" class="grpbadge" data-open="rgr.${esc(g)}">${esc(t.grpBadge(a.rgrp[n]))}</button>`).join("")}</div>
+          <div class="ab">${a.b.map(b => `<span class="b">${esc(b)}</span>`).join("")}${a.u.map(x => unlockHtml(x)).join("")}</div></div>
+        <div class="side"><div>${a.req.length ? `${esc(t.requires)}: ${a.req.map(esc).join(", ")}` : ""}${a.req.length && a.d ? " · " : ""}${a.d ? `<button type="button" class="dbtn" aria-expanded="false">${esc(t.descr)}</button>` : ""}</div>
+          ${a.cond.length === 1 && !a.cond[0].c ? `<div class="${a.cond[0].k === "orig" ? "orig" : ""}">${esc(t.extra)} ${esc(a.cond[0].t)}</div>` : a.cond.length ? `<div>${esc(t.extra)}</div>${tree(a.cond)}` : ""}</div>
+        ${a.d ? `<div class="ad" hidden>${esc(a.d)}</div>` : ""}</div>`).join("")).join("") + `</div>`;
+}
+
+function geoRow(label, text, key) {
+  if (!text) return "";
+  if (!key || !DATA.geo || !DATA.geo[key]) return `<div><span class="muted">${esc(label)}:</span> ${esc(text)}</div>`;
+  const g = DATA.geo[key], t = u();
+  const extra = g.n !== text ? `<b>${esc((t.geoLv[g.lv] || "").toLowerCase())} ${esc(g.n)}</b>` : "";
+  return `<div><span class="muted">${esc(label)}:</span> <button type="button" class="linkchip" data-open="geo.${esc(key)}">${esc(text)}${extra}</button></div>`;
+}
+function contCell(i) {
+  return i.contk && DATA.geo && DATA.geo[i.contk] ? `<button type="button" class="cellbtn" data-open="geo.${esc(i.contk)}">${esc(i.cont)}</button>` : esc(i.cont);
+}
+
+function openFixed(i, push) {
+  const t = u(), d = $("#drawer");
+  const row = (k, v) => v ? `<div><span class="muted">${esc(k)}:</span> ${esc(v)}</div>` : "";
+  d.innerHTML = `
+    <div class="dhead"><span class="sw" style="background:${i.color || "transparent"}"></span><h2 id="dtitle">${esc(i.name)}</h2>
+      <span class="tag">${esc(i.tag)}</span>${i.rank ? `<span class="rule">${esc(i.rank)}</span>` : ""}
+      ${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    <p class="gilt" style="white-space:normal">${esc(t.fixedNote)}</p>
+    ${i.twin ? `<p class="small">${esc(t.twinFixedNote(i.twin.name, i.twin.tag))} <button type="button" class="dbtn" data-open="${esc(i.twin.id)}">${esc(t.twinOpen)}</button></p>` : ""}
+    <div class="cards">
+      ${advances(i)}
+      ${principles(i)}
+      <div class="card"><h3>${esc(t.infoTitle)}</h3>${geoRow(t.capital, i.cap, i.capk)}${i.ck && DATA.culByKey[i.ck] ? `<div><span class="muted">${esc(t.culture)}:</span> <button type="button" class="linkchip" data-open="cul.${esc(i.ck)}">${esc(i.cul)}</button></div>` : row(t.culture, i.cul)}${i.rk && DATA.relByKey[i.rk] ? `<div><span class="muted">${esc(t.religion)}:</span> <button type="button" class="linkchip" data-open="rel.${esc(i.rk)}">${esc(i.rel)}</button></div>` : row(t.religion, i.rel)}${geoRow(t.continent, i.cont, i.contk)}${row(t.locsStart, String(i.locs))}</div>
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav(i.id);
+  render();
+  $("#close").focus({ preventScroll: true });
+}
+
+// a link from a card into another list: that list starts unfiltered, so the opened row is always in it
+function switchList(m) {
+  state.mode = m; state.q = ""; state.cont = ""; state.clang = ""; state.tiers.clear(); state.rules.clear();
+  FLAGS.forEach(f => { state[f] = false; $("#" + f).checked = false; });
+  $("#q").value = ""; $("#cont").value = "";
+  document.querySelectorAll("#tiers .chip, #rules .chip").forEach(c => c.setAttribute("aria-pressed", "false"));
+  paintChrome();
+}
+function openDetail(id, push = true) {
+  const t = u();
+  const i = items.find(x => x.id === id), d = $("#drawer");
+  if (id.startsWith("rgr.") && DATA.rgrByKey[id.slice(4)]) {
+    if (!relMode()) { switchList("r"); render(); }
+    state.sel = null; openRGroup(DATA.rgrByKey[id.slice(4)], push); return;
+  }
+  if (id.startsWith("rel.") && DATA.relByKey[id.slice(4)]) {
+    state.sel = id; if (!relMode()) { switchList("r"); }
+    openReligion(DATA.relByKey[id.slice(4)], push); return;
+  }
+  if (id.startsWith("geo.") && DATA.geo && DATA.geo[id.slice(4)]) { state.sel = null; openGeo(id.slice(4), push); return; }
+  if (id.startsWith("grp.")) {
+    const g = DATA.grpByKey[id.slice(4)];
+    if (g) { if (!cultMode()) { switchList("c"); render(); } state.sel = null; openGroup(g, push); return; }
+  }
+  const cu = !i && (DATA.cultures || []).find(x => x.id === id);
+  if (cu) { state.sel = id; if (!cultMode()) { switchList("c"); } openCulture(cu, push); return; }
+  const fx = !i && (DATA.fixed || []).find(x => x.id === id);
+  if (fx) { state.sel = id; if (!fixedMode()) { switchList("x"); } openFixed(fx, push); return; }
+  if (i && state.mode !== "f") { switchList("f"); }
+  if (!i) { closeDetail(); return; }
+  state.sel = id;
+  const pct = Math.round(i.frac * 100);
+  const terr = Object.entries(i.terr).map(([lab, list]) => `<h4>${esc(lab)}</h4>${list.map(e => e.k && DATA.geo && DATA.geo[e.k] ? `<button type="button" class="pill pillbtn" data-open="geo.${esc(e.k)}">${esc(e.n)}<b>${e.c}</b></button>` : `<span class="pill">${esc(e.n)}<b>${e.c}</b></span>`).join("")}`).join("");
+  const ranks = i.ranks.map(r => DATA.ranks[r]).filter(Boolean).map(r =>
+    `<div class="card"><h3>${esc(t.rankBonus(r.name))}</h3><ul class="tree">${r.mods.map(m => `<li class="k-good"><span>${esc(m)}</span></li>`).join("")}</ul></div>`).join("");
+  d.innerHTML = `
+    <div class="dhead"><span class="sw" style="background:${i.color || "transparent"}"></span><h2 id="dtitle">${esc(i.name)}</h2>
+      <span class="tag">${esc(i.tag)} · ${esc(i.id)}</span><span class="tier t${i.level}">${esc(t.tierN(i.level))}</span>
+      <span class="rule">${esc(t.rules[i.rule] || i.rule)}</span>${backBtn()}<button class="close" type="button" id="close">${esc(t.close)}</button></div>
+    ${i.start ? `<p class="muted small">${esc(t.startNote)} ${esc(t.startTier(i.level))}</p>` : ""}
+    ${i.twinFixed ? `<p class="small">${esc(t.twinFormNote(i.twinFixed.tag))} <button type="button" class="dbtn" data-open="${esc(i.twinFixed.id)}">${esc(t.twinOpen)}</button></p>` : ""}
+    ${i.desc ? `<p class="desc clamp" title="${esc(t.descr)}">${esc(i.desc)}</p>` : ""}
+    <div class="cards">
+      ${advances(i)}
+      ${principles(i)}
+      ${cultureCard(i)}
+      ${religionCard(i)}
+      <div class="card terr"><h3>${esc(t.terrTitle)}</h3>
+        ${i.event ? `<div class="gilt" style="white-space:normal">${esc(t.eventNote)}</div>` : `<div>${t.needOwn(pct, i.need, i.total)}</div><div class="meter"><i style="width:${pct}%"></i></div>`}
+        ${i.event ? "" : i.cap ? `<div class="muted small">${esc(t.capReq)}</div>` : `<div class="gilt">${esc(t.capFree)}</div>`}
+        ${!i.own ? `<div class="muted small">${esc(t.ownNo)}</div>` : ""}
+        ${terr || (i.event ? "" : `<div class="muted">${esc(t.noTerr)}</div>`)}</div>
+      <div class="card"><h3>${esc(t.potTitle)}</h3>${tree(i.pot) || `<div class="muted">${esc(t.potNone)}</div>`}</div>
+      <div class="card"><h3>${esc(t.allowTitle)}</h3>${tree(i.allow) || `<div class="muted">${esc(t.allowNone)}</div>`}</div>
+      <div class="card"><h3>${esc(t.effTitle)}</h3>${tree(i.eff) || `<div class="muted">${esc(t.effNone)}</div>`}</div>
+      ${ranks}
+    </div>`;
+  d.classList.add("open"); $("#backdrop").hidden = false; d.scrollTop = 0;
+  $("#close").onclick = closeDetail;
+  if (push) nav(id);
+  render();
+  $("#close").focus({ preventScroll: true });
+}
+function backBtn() {
+  // shown only when there is a step inside the site to go back to
+  const can = history.state && history.state.d > 0;
+  return can ? `<button class="dback" type="button" id="dback" title="${esc(u().back)}" aria-label="${esc(u().back)}">↶</button>` : "";
+}
+const tabHash = () => state.mode === "f" ? "" : "tab." + state.mode;
+function nav(h) {
+  // one history entry per card or list, so the browser's back and forward buttons walk through them
+  if (decodeURIComponent(location.hash.slice(1)) === h) return;
+  try { history.pushState({ d: ((history.state && history.state.d) || 0) + 1 }, "", h ? "#" + h : location.pathname + location.search); } catch {}
+}
+function closeDetail(fromHistory = false) {
+  $("#drawer").classList.remove("open"); $("#backdrop").hidden = true;
+  const was = state.sel; state.sel = null;
+  if (fromHistory !== true) nav(tabHash());
+  render();
+  if (was) document.querySelector(`tr[data-id="${CSS.escape(was)}"]`)?.focus({ preventScroll: true });
+}
+
+async function setLang(l) {
+  lang = l; store.set("eu5f-lang", l); $("#lang").value = l;
+  paintChrome();
+  $("#loading").hidden = false;
+  try {
+    DATA = await loadLang(l);
+    prepare();
+    $("#loading").hidden = true;
+    paintChrome(); render();
+    if (state.sel) openDetail(state.sel, false);
+  } catch (e) {
+    $("#loading").textContent = u().loadFail;
+  }
+}
+
+$("#lang").innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+$("#lang").addEventListener("change", e => setLang(e.target.value));
+$("#tiers").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; const v = +b.dataset.v;
+  state.tiers.has(v) ? state.tiers.delete(v) : state.tiers.add(v); b.setAttribute("aria-pressed", state.tiers.has(v)); render(); });
+$("#rules").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; const v = b.dataset.v;
+  state.rules.has(v) ? state.rules.delete(v) : state.rules.add(v); b.setAttribute("aria-pressed", state.rules.has(v)); render(); });
+$("#rows").addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"); if (o) { openDetail(o.dataset.open); return; }
+  const l = e.target.closest("[data-lang]"); if (l) { filterLang(l.dataset.lang); return; }
+  const tr = e.target.closest("tr"); if (tr) openDetail(tr.dataset.id);
+});
+$("#count").addEventListener("click", e => { if (e.target.closest("#clearLang")) { state.clang = ""; render(); } });
+function filterLang(name) {
+  if (state.sel) closeDetail();
+  if (!cultMode()) { switchList("c"); }
+  state.clang = name; render();
+}
+function filterGroup(name) {
+  if (state.sel) closeDetail();
+  if (!cultMode()) { state.mode = "c"; paintChrome(); }
+  state.cont = name; state.clang = ""; paintChrome(); render();
+}
+$("#rows").addEventListener("keydown", e => { if (e.key === "Enter") { const tr = e.target.closest("tr"); if (tr) openDetail(tr.dataset.id); } });
+$("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
+$("#cont").addEventListener("change", e => { state.cont = e.target.value; render(); });
+$("#sort").addEventListener("change", e => { setSort(e.target.value); render(); });
+function setMode(m, fromHistory = false) {
+  if (m === state.mode) return;
+  state.mode = m; state.cont = ""; state.clang = ""; $("#cont").value = "";
+  if (state.sel) closeDetail(true);
+  paintChrome(); render();
+  if (!fromHistory) nav(tabHash());
+}
+window.addEventListener("popstate", () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h || h.startsWith("tab.")) {
+    if (state.sel || !$("#backdrop").hidden) closeDetail(true);
+    setMode(h ? h.slice(4) : "f", true);
+  } else openDetail(h, false);
+});
+$("#other").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if (b) setMode(b.dataset.mode); });
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if (b) setMode(b.dataset.mode); });
+const FLAGS = ["fRank", "fEff", "fCap", "fAllow", "fAdv", "fNoEvent"];
+for (const f of FLAGS) $("#" + f).addEventListener("change", e => { state[f] = e.target.checked; render(); });
+document.querySelectorAll("th").forEach(th => th.addEventListener("click", () => {
+  const k = th.dataset.k, [ck, cd] = sortKey().split(":");
+  const desc = ["level", "rank", "nadv", "rankLevel", "locs", "nforms", "nst"].includes(k);  // numbers sort high-first
+  setSort(`${k}:${ck === k ? (cd === "asc" ? "desc" : "asc") : (desc ? "desc" : "asc")}`);
+  $("#sort").value = sortKey();
+  render();
+}));
+$("#reset").addEventListener("click", () => {
+  state.q = ""; state.tiers.clear(); state.rules.clear(); state.cont = ""; state.clang = "";
+  FLAGS.forEach(f => { state[f] = false; $("#" + f).checked = false; });
+  $("#q").value = ""; $("#cont").value = "";
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", "false"));
+  render();
+});
+$("#backdrop").addEventListener("click", closeDetail);
+$("#drawer").addEventListener("click", e => {
+  if (e.target.closest("#dback")) { history.back(); return; }
+  const o = e.target.closest("[data-open]");
+  if (o) { openDetail(o.dataset.open); return; }
+  const l = e.target.closest("[data-lang]");
+  if (l) { filterLang(l.dataset.lang); return; }
+  const fr = e.target.closest("[data-filter-rgroup]");
+  if (fr) { if (state.sel) closeDetail(); if (!relMode()) setMode("r"); state.cont = fr.dataset.filterRgroup; paintChrome(); render(); closeDetail(); return; }
+  const fg = e.target.closest("[data-filter-group]");
+  if (fg) { filterGroup(fg.dataset.filterGroup); return; }
+  const b = e.target.closest(".dbtn");
+  if (b) {
+    const box = b.closest(".adv").querySelector(".ad");
+    box.hidden = !box.hidden; b.setAttribute("aria-expanded", String(!box.hidden));
+    return;
+  }
+  const p = e.target.closest(".desc");
+  if (p) p.classList.toggle("clamp");
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && state.sel) closeDetail(); });
+const root = document.documentElement;
+const savedTheme = store.get("eu5f-theme");
+if (savedTheme === "dark" || savedTheme === "light") root.dataset.theme = savedTheme;
+$("#theme").addEventListener("click", () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark"; store.set("eu5f-theme", root.dataset.theme);
+});
+{
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith("tab.") && ["x", "c", "r"].includes(h.slice(4))) state.mode = h.slice(4);
+  else if (h) state.sel = h;
+}
+setLang(lang);
+</script>
