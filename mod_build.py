@@ -453,7 +453,7 @@ def build(lang, nw, idx, cul_cont):
             loc[f"FMX_CU_{n}"] = block(u, lines)
             gks = [g for g in c["gk"] if g in d["grpByKey"]]
             loc[f"FMX_CGN_{n}"] = ", ".join(nlink("cg", g) for g in gks) or "—"
-            loc[f"FMX_CGT_{n}"] = clean(d["grpByKey"][gks[0]]["name"]) if gks else "~"
+            loc[f"FMX_GI_{n}"] = clean(d["grpByKey"][gks[0]]["name"]) if gks else "~"
     for r in d["religions"]:
         if r["key"] in idx["r"]:
             loc[f"FMX_RE_{idx['r'][r['key']]}"] = block(u, [
@@ -482,7 +482,7 @@ def build(lang, nw, idx, cul_cont):
         concepts.append(key)
         loc[f"game_concept_{key}"] = clean(x["name"])
         loc[f"game_concept_{key}_desc"] = "\\n".join(L).replace("\n", "\\n")
-        loc[f"FMX_XL_{xn}"] = f"[{key}|e]"     # the atlas card in the native list's tooltip
+        loc[f"FMX_XI_{xn}"] = f"[{key}|e]"     # the atlas card in the native list's tooltip
 
     tloc, shape = tables(d, u, nw, cul_cont)
     loc.update(tloc)
@@ -741,11 +741,23 @@ def insert_in_template(src, template, anchor, text):
     return src[:at] + text + src[at:]
 
 
+def template_text(src, template):
+    """The whole top-level `template <name> { ... }` block."""
+    start = src.index(f"template {template} {{")
+    depth = 0
+    for at in range(src.index("{", start), len(src)):
+        depth += {"{": 1, "}": -1}.get(src[at], 0)
+        if depth == 0:
+            return src[start:at + 1] + "\n"
+
+
 def tooltip_overrides(formables, groups):
+    """Only the templates the atlas changes, in files of its own: a template is replaced by name, so the rest of the
+    game's tooltip files stays with whatever loads them (Glorp UI's CountryTooltip, for one), in any load order."""
     files = {}
     src = open(G + "in_game/gui/shared/country_tooltips.gui", encoding="utf-8-sig").read().replace("\r", "")
     src = insert_in_template(src, "formablecountry_info", "TooltipScrolledRowList = {", formable_blocks(1, formables))
-    files["country_tooltips.gui"] = src
+    files["fmx_country_tooltips.gui"] = template_text(src, "formablecountry_info")
 
     src = open(G + "in_game/gui/shared/society_tooltips.gui", encoding="utf-8-sig").read().replace("\r", "")
     src = insert_in_template(src, "culture_group_tooltip", "TooltipFlavorTextBlock = {", matched_blocks(3, "CultureGroup", groups, "FMX_CG_"))
@@ -753,13 +765,58 @@ def tooltip_overrides(formables, groups):
     anchor = src.index("using = culture_tooltip_content", start)
     close = src.index("}\n", anchor) + 2               # end of the TooltipContentSection
     src = src[:close] + atlas_block(3, "FMX_CU_", "Culture.GetKey") + src[close:]
-    files["society_tooltips.gui"] = src
+    files["fmx_society_tooltips.gui"] = template_text(src, "culture_group_tooltip") + "\n" + template_text(src, "culture_tooltip")
 
     src = open(G + "in_game/gui/shared/religion_tooltips.gui", encoding="utf-8-sig").read().replace("\r", "")
     src = insert_in_template(src, "religion_tooltip", "TooltipFlavorTextBlock = {", atlas_block(3, "FMX_RE_", "Religion.GetKey"))
     src = insert_in_template(src, "religion_group_tooltip", "TooltipFlavorTextBlock = {", atlas_block(3, "FMX_RG_", "ReligionGroup.GetKey"))
-    files["religion_tooltips.gui"] = src
+    files["fmx_religion_tooltips.gui"] = template_text(src, "religion_tooltip") + "\n" + template_text(src, "religion_group_tooltip")
     return files
+
+
+def murmur3(text):
+    """MurmurHash3 x86 32-bit, seed 0: the hash the game files localization keys under."""
+    data = text.encode("utf-8")
+    h, n = 0, len(data) // 4
+    def mix(k):
+        k = (k * 0xcc9e2d51) & 0xffffffff
+        k = ((k << 15) | (k >> 17)) & 0xffffffff
+        return (k * 0x1b873593) & 0xffffffff
+    for i in range(n):
+        h ^= mix(int.from_bytes(data[4 * i:4 * i + 4], "little"))
+        h = ((h << 13) | (h >> 19)) & 0xffffffff
+        h = (h * 5 + 0xe6546b64) & 0xffffffff
+    tail = data[4 * n:]
+    if tail:
+        h ^= mix(int.from_bytes(tail, "little"))
+    h ^= len(data)
+    h ^= h >> 16
+    h = (h * 0x85ebca6b) & 0xffffffff
+    h ^= h >> 13
+    h = (h * 0xc2b2ae35) & 0xffffffff
+    return h ^ (h >> 16)
+
+
+def check_key_hashes(keys):
+    """Stops the build when a key of ours shares its hash with a game key or another of ours: the game then shows one
+    key's text for the other (FMX_XL_714 took the name of the NTR tag)."""
+    game = {}
+    for root, _, names in os.walk(G + "main_menu/localization/english"):
+        for name in names:
+            if name.endswith(".yml"):
+                for line in open(os.path.join(root, name), encoding="utf-8-sig", errors="replace"):
+                    m = re.match(r"\s+([A-Za-z0-9_.\-']+):\d*\s", line)
+                    if m:
+                        game.setdefault(murmur3(m.group(1)), m.group(1))
+    seen, clashes = {}, []
+    for key in keys:
+        h = murmur3(key)
+        other = seen.get(h) or (game.get(h) if game.get(h) != key else None)
+        if other:
+            clashes.append(f"{key} / {other}")
+        seen[h] = key
+    if clashes:
+        raise SystemExit("localization key hash collisions: " + ", ".join(clashes))
 
 
 def write(path, text, bom=False):
@@ -854,6 +911,8 @@ def main():
         write(os.path.join(OUT, "main_menu", "localization", lang, f"fmx_l_{lang}.yml"), "\n".join(lines) + "\n", bom=True)
         write(os.path.join(OUT, "main_menu", "localization", lang, "replace", f"fmx_replace_l_{lang}.yml"),
               "\n".join([f"l_{lang}:"] + [f' {k}: "{v}"' for k, v in variant_names(d["items"], lang).items()]) + "\n", bom=True)
+        if lang == "english":           # the keys are the same in every language
+            check_key_hashes(list(loc) + list(variant_names(d["items"], lang)))
         print(f"{lang:13} {len(loc)} loc entries")
     write(os.path.join(OUT, "in_game", "common", "game_concepts", "fmx_concepts.txt"),
           "\n".join(f"{c} = {{\n\ttexture = \"modifiers/_default\"\n\tshown_in_encyclopedia = no\n}}" for c in all_concepts) + "\n", bom=True)
@@ -869,7 +928,7 @@ def main():
             shutil.copyfile(text[1], target)
         else:
             write(target, text, bom=path.endswith(".txt"))
-    meta = {"name": "Formables Atlas", "id": "grackbox.formables_atlas", "version": "1.0.2", "game_id": "eu5",
+    meta = {"name": "Formables Atlas [LOCAL]", "id": "grackbox.formables_atlas", "version": "1.0.2", "game_id": "eu5",
             "supported_game_version": "1.4.*", "short_description": "In-game atlas of formable nations, cultures and religions.",
             "tags": ["Utilities", "User Interface", "1.4"], "relationships": [], "game_custom_data": {}}
     write(os.path.join(OUT, ".metadata", "metadata.json"), json.dumps(meta, indent=4, ensure_ascii=False) + "\n", bom=True)

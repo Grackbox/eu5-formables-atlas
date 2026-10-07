@@ -25,5 +25,10 @@ python mod_build.py    # builds the mod from site/data into Documents/Paradox In
 | `native_lists.py` | the four game list windows (generic actions, attribute columns, filters, script values) |
 | `cover.png` / `cover.jpg` | launcher thumbnail / Workshop preview |
 
-The mod overrides form_new_country.gui, country_tooltips.gui, society_tooltips.gui, religion_tooltips.gui,
-cultures_ledger.gui, religions_ledger.gui and the country, culture and religion attribute columns and filters.
+The mod overrides form_new_country.gui, cultures_ledger.gui, religions_ledger.gui and the country, culture and religion
+attribute columns and filters. The tooltip templates it extends (formablecountry_info, culture_group_tooltip,
+culture_tooltip, religion_tooltip, religion_group_tooltip) are replaced by name from `fmx_*_tooltips.gui`, so the rest
+of the game's tooltip files (Glorp UI's CountryTooltip, for one) is left to other mods in any load order.
+
+The build stops when a localization key of the mod shares its MurmurHash3 with a game key: the game then shows one
+key's text for the other. The local build is named "Formables Atlas [LOCAL]"; `upload_item.py` takes the mark off.

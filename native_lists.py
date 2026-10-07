@@ -53,7 +53,7 @@ def lists(d, idx, cul_cont, religion_part, fam_keys):
             # the GUI has no getter for a culture's groups, so their links come from loc keyed by the culture's index
             Col("fmx_cul_group", 130, "text", "Группа", "Group", "Сортировать по культурной группе", "Sort by culture group", "group",
                 show="[Localize(Concatenate('FMX_CGN_', InteractionTarget.GetCulture.GetKey))]",
-                sort="[Localize(Concatenate('FMX_CGT_', ROOT.GetCulture.GetKey))]"),
+                sort="[Localize(Concatenate('FMX_GI_', ROOT.GetCulture.GetKey))]"),
             Col("fmx_cul_lang", 100, "text", "Язык", "Language", "Сортировать по языку", "Sort by language", "language",
                 show="[InteractionTarget.GetCulture.GetLanguage.GetName]", sort="[ROOT.GetCulture.GetLanguage.GetNameWithNoTooltip]"),
             Col("fmx_cul_adv", 50, "sv", "Улучшения", "Advances", "Сортировать по числу культурных улучшений",
@@ -149,7 +149,7 @@ NAME_COLS = {
     # a nation without a tier opens its atlas card (the hidden concept), not the live country tooltip; the concept link
     # comes from loc keyed by the nation's index, since its tag can't build a key in the GUI
     "country": ("SORT_TEXT_COUNTRY_NAME",
-                "[Localize(Concatenate('FMX_XL_', ToString_int32(FixedPointToInt(InteractionTarget.GetCountry.MakeScope.ScriptValue('fmx_x_index_value')))))]",
+                "[Localize(Concatenate('FMX_XI_', ToString_int32(FixedPointToInt(InteractionTarget.GetCountry.MakeScope.ScriptValue('fmx_x_index_value')))))]",
                 '\t\t\tcountry_flag_small = {\n\t\t\t\tsize = { 40 27 }\n\t\t\t\tdatacontext = "[InteractionTarget.GetCountry]"\n\t\t\t}\n',
                 "[InteractionTarget.GetCountry.GetNameWithNoTooltip]"),
 }
@@ -270,7 +270,7 @@ def files(G, L):
 
 def loc(lang, L, filter_names):
     ru = lang == RU
-    out = {"FMX_XL_0": "", "FMX_NATIVE_HINT": "Список откроется в окне игры: сортировка по любой колонке, поиск и фильтры (кнопка-воронка). Наведите на название — откроется карточка с данными атласа."
+    out = {"FMX_XI_0": "", "FMX_NATIVE_HINT": "Список откроется в окне игры: сортировка по любой колонке, поиск и фильтры (кнопка-воронка). Наведите на название — откроется карточка с данными атласа."
             if ru else "The list opens in the game's own window: sort by any column, search and filters (funnel button). Hover a name for its card with the atlas data."}
     for t, s in L.items():
         name = s["name"][0 if ru else 1]
