@@ -293,5 +293,6 @@ def loc(lang, L, filter_names):
         out[name_col(s)] = "Название" if ru else "Name"
         for (key, n, _), fname in zip(s["filters"], filter_names[t]):
             out[f"search_filter_{key}_name"] = fname
-            out[f"search_filter_{key}_desc"] = ("Атлас: " if ru else "Atlas: ") + fname
+            # no colon: the filter tooltip showed only what came before one ("Atlas")
+            out[f"search_filter_{key}_desc"] = ("Фильтр атласа — " if ru else "Atlas filter — ") + fname
     return out
