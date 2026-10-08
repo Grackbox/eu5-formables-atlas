@@ -26,6 +26,7 @@ ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII"]
 SHOW = {"continent": "ShowContinentName", "sub_continent": "ShowSubContinentName", "region": "ShowRegionName",
         "area": "ShowAreaName", "province": "ShowProvinceDefinitionName"}
 CHUNK = 100
+LATER_CULTURES = 2000   # cultures made during a game get the indices after the game's own; this many get empty keys
 WINDOW_W = 1480
 REVERSIBLE = {"f", "r"}     # the big tables get one direction per sort to keep the loc files small
 CONTINENTS = ["europe", "asia", "africa", "america", "oceania"]
@@ -465,6 +466,12 @@ def build(lang, nw, idx, cul_cont):
     for kind, prefix in (("c", "FMX_CU_"), ("r", "FMX_RE_"), ("rg", "FMX_RG_")):
         for n in idx[kind].values():
             loc.setdefault(f"{prefix}{n}", "")
+    # cultures made during the game (form_new_culture, merge_culture_group) come after the game's own, and the atlas
+    # has nothing on them: no block, and no group in the cultures list
+    for n in list(idx["c"].values()) + list(range(len(idx["c"]), len(idx["c"]) + LATER_CULTURES)):
+        loc.setdefault(f"FMX_CU_{n}", "")
+        loc.setdefault(f"FMX_CGN_{n}", "—")
+        loc.setdefault(f"FMX_GI_{n}", "~")
 
     # nations without a tier: hidden concepts
     for x in d["fixed"]:
