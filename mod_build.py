@@ -2,8 +2,9 @@
 
 * The game's own tooltips for formables, cultures, religions and religion groups get an extra block (what the site
   knows and the game doesn't show: territory, required cultures, what a culture can form, nations at the start...).
-  Culture.GetKey / Religion.GetKey / ReligionGroup.GetKey return the object's index in load order, so the blocks are
-  keyed by that index; formables are keyed by FormableCountry.GetFlagTag.
+  Cultures and religions are keyed by their atlas number, which a script value gives (Culture.GetKey returns the load
+  index, which moves when another mod adds a file); religion groups by ReligionGroup.GetKey (the key itself);
+  formables by matching their name.
 * Nations without a tier are hidden game concepts (the game has no tooltip for a country that isn't on the map).
 * Every other name is a native game link, so the game shows it in the player's language and opens its own tooltip.
 * A window with four tables opens from a button in the Formables panel. Each table is split into parts (continents,
@@ -26,7 +27,6 @@ ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII"]
 SHOW = {"continent": "ShowContinentName", "sub_continent": "ShowSubContinentName", "region": "ShowRegionName",
         "area": "ShowAreaName", "province": "ShowProvinceDefinitionName"}
 CHUNK = 100
-LATER_CULTURES = 2000   # cultures made during a game get the indices after the game's own; this many get empty keys
 WINDOW_W = 1480
 REVERSIBLE = {"f", "r"}     # the big tables get one direction per sort to keep the loc files small
 CONTINENTS = ["europe", "asia", "africa", "america", "oceania"]
@@ -89,7 +89,7 @@ UI = {
 # ---------------------------------------------------------------- game files
 
 def top_level_keys(folder):
-    """Object keys in load order (files by name, objects in file order): the index Culture.GetKey returns."""
+    """Object keys in load order (files by name, objects in file order)."""
     keys = []
     for f in sorted(os.listdir(G + folder)):
         if not f.endswith(".txt"):
@@ -447,29 +447,31 @@ def build(lang, nw, idx, cul_cont):
         loc[f"FMX_CG_{g['key']}"] = block(u, ["\n".join(adv_lines(advs, u["gadv"])), unlock_lines(advs, u)])
     for c in d["cultures"]:
         advs = [d["cadv"][a] for a in c["adv"] if a in d["cadv"]]
-        lines = ["\n".join(adv_lines(advs, u["cadv"])), unlock_lines(advs, u),
-                 forms_line(c["forms"], True), start_line(c["st"])]
+        adv = "\n".join(adv_lines(advs, u["cadv"]))
+        lines = [adv, unlock_lines(advs, u), forms_line(c["forms"], True), start_line(c["st"])]
         if c["key"] in idx["c"]:
             n = idx["c"][c["key"]]
             loc[f"FMX_CU_{n}"] = block(u, lines)
+            loc[f"FMX_CAT_{n}"] = block(u, [adv])
             gks = [g for g in c["gk"] if g in d["grpByKey"]]
             loc[f"FMX_CGN_{n}"] = ", ".join(nlink("cg", g) for g in gks) or "—"
             loc[f"FMX_GI_{n}"] = clean(d["grpByKey"][gks[0]]["name"]) if gks else "~"
     for r in d["religions"]:
         if r["key"] in idx["r"]:
-            loc[f"FMX_RE_{idx['r'][r['key']]}"] = block(u, [
-                "\n".join(adv_lines([d["radv"][a] for a in r["adv"] if a in d["radv"]], u["radv"]))])
+            n = idx["r"][r["key"]]
+            adv = "\n".join(adv_lines([d["radv"][a] for a in r["adv"] if a in d["radv"]], u["radv"]))
+            loc[f"FMX_RE_{n}"] = block(u, [adv])
+            loc[f"FMX_RAT_{n}"] = block(u, [adv])
     for g in d["rgroups"]:
         if g["key"] in idx["rg"]:
             loc[f"FMX_RG_{idx['rg'][g['key']]}"] = block(u, ["\n".join(adv_lines([d["radv"][a] for a in g["adv"] if a in d["radv"]], u["gadv"]))])
-    # every object the game may show gets a key, even an empty one, so no raw key ever shows up
-    for kind, prefix in (("c", "FMX_CU_"), ("r", "FMX_RE_"), ("rg", "FMX_RG_")):
-        for n in idx[kind].values():
-            loc.setdefault(f"{prefix}{n}", "")
-    # cultures made during the game (form_new_culture, merge_culture_group) come after the game's own, and the atlas
-    # has nothing on them: no block, and no group in the cultures list
-    for n in list(idx["c"].values()) + list(range(len(idx["c"]), len(idx["c"]) + LATER_CULTURES)):
-        loc.setdefault(f"FMX_CU_{n}", "")
+    # every object the game may show gets a key, even an empty one, so no raw key ever shows up; number 0 is a
+    # culture or religion the atlas doesn't know (from another mod, or made during the game)
+    for kind, prefixes in (("c", ("FMX_CU_", "FMX_CAT_")), ("r", ("FMX_RE_", "FMX_RAT_")), ("rg", ("FMX_RG_",))):
+        for n in ([0] if kind != "rg" else []) + list(idx[kind].values()):
+            for prefix in prefixes:
+                loc.setdefault(f"{prefix}{n}", "")
+    for n in [0] + list(idx["c"].values()):
         loc.setdefault(f"FMX_CGN_{n}", "—")
         loc.setdefault(f"FMX_GI_{n}", "~")
 
@@ -771,11 +773,11 @@ def tooltip_overrides(formables, groups):
     start = src.index("template culture_tooltip {")
     anchor = src.index("using = culture_tooltip_content", start)
     close = src.index("}\n", anchor) + 2               # end of the TooltipContentSection
-    src = src[:close] + atlas_block(3, "FMX_CU_", "Culture.GetKey") + src[close:]
+    src = src[:close] + atlas_block(3, "FMX_CU_", native_lists.index_text("Culture")) + src[close:]
     files["fmx_society_tooltips.gui"] = template_text(src, "culture_group_tooltip") + "\n" + template_text(src, "culture_tooltip")
 
     src = open(G + "in_game/gui/shared/religion_tooltips.gui", encoding="utf-8-sig").read().replace("\r", "")
-    src = insert_in_template(src, "religion_tooltip", "TooltipFlavorTextBlock = {", atlas_block(3, "FMX_RE_", "Religion.GetKey"))
+    src = insert_in_template(src, "religion_tooltip", "TooltipFlavorTextBlock = {", atlas_block(3, "FMX_RE_", native_lists.index_text("Religion")))
     src = insert_in_template(src, "religion_group_tooltip", "TooltipFlavorTextBlock = {", atlas_block(3, "FMX_RG_", "ReligionGroup.GetKey"))
     files["fmx_religion_tooltips.gui"] = template_text(src, "religion_tooltip") + "\n" + template_text(src, "religion_group_tooltip")
     return files
@@ -842,11 +844,12 @@ LEDGER_COLS = [("ADV", "Улучшения", "Advances"), ("FORMS", "Форма�
 
 
 def ledger_cells(indent, values, obj):
-    """Journal cells showing the script values the atlas lists sort by (see native_lists)."""
+    """Journal cells showing the script values the atlas lists sort by (see native_lists); a dash for the cultures
+    and religions the atlas doesn't know."""
     i = "\t" * indent
     return "".join(
         f"\n{i}text_single = {{\n{i}\tusing = layoutpolicy_expanding\n{i}\tlayoutstretchfactor_horizontal = 1\n{i}\tautoresize = no\n"
-        f"{i}\talign = left|nobaseline\n{i}\ttext = \"[{obj}.MakeScope.ScriptValue('{v}')|0]\"\n{i}}}\n" for v in values)
+        f"{i}\talign = left|nobaseline\n{i}\ttext = \"[{native_lists.known_number(obj, v)}]\"\n{i}}}\n" for v in values)
 
 
 def ledger_headers(indent):
@@ -884,8 +887,10 @@ def ledger_loc(lang, d, idx):
 
 
 def main():
-    # Culture.GetKey and Religion.GetKey give the load index; ReligionGroup.GetKey gives the key itself
-    idx = {"c": top_level_keys("in_game/common/cultures"), "r": top_level_keys("in_game/common/religions"),
+    # cultures and religions get atlas numbers from 1 (fmx_*_index_value; 0 is one the atlas doesn't know);
+    # ReligionGroup.GetKey gives the key itself
+    idx = {"c": {k: n + 1 for k, n in top_level_keys("in_game/common/cultures").items()},
+           "r": {k: n + 1 for k, n in top_level_keys("in_game/common/religions").items()},
            "rg": {k: k for k in top_level_keys("in_game/common/religion_groups")}}
     cul_cont = culture_continents()
     datas = {lang: load(lang) for lang in LANGS}
@@ -935,7 +940,7 @@ def main():
             shutil.copyfile(text[1], target)
         else:
             write(target, text, bom=path.endswith(".txt"))
-    meta = {"name": "Formables Atlas [LOCAL]", "id": "grackbox.formables_atlas", "version": "1.0.2", "game_id": "eu5",
+    meta = {"name": "Formables Atlas [LOCAL]", "id": "grackbox.formables_atlas", "version": "1.0.3", "game_id": "eu5",
             "supported_game_version": "1.4.*", "short_description": "In-game atlas of formable nations, cultures and religions.",
             "tags": ["Utilities", "User Interface", "1.4"], "relationships": [], "game_custom_data": {}}
     write(os.path.join(OUT, ".metadata", "metadata.json"), json.dumps(meta, indent=4, ensure_ascii=False) + "\n", bom=True)

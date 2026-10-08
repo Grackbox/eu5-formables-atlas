@@ -9,12 +9,42 @@ import re
 
 RU = "russian"
 
+# A culture's or religion's atlas number (1, 2, ...; 0 for one the atlas doesn't know: from another mod, or made during
+# the game). Culture.GetKey gives the load index instead, and that moves when another mod adds a culture file.
+INDEX_VALUES = {"culture": "fmx_cul_index_value", "religion": "fmx_rel_index_value"}
+
+
+def index_text(obj):
+    """GUI expression: the atlas number of `obj` (a Culture or Religion) as a string, for building loc keys."""
+    kind = "culture" if obj.endswith("Culture") else "religion"
+    return f"ToString_int32(FixedPointToInt({obj}.MakeScope.ScriptValue('{INDEX_VALUES[kind]}')))"
+
+
+def known_number(obj, value, known=None):
+    """GUI expression: a script value of `obj`, or a dash when the atlas doesn't know the object (its `known` value is
+    0), so a formable or culture from another mod doesn't show as tier 0 or 0 advances."""
+    if known is None:
+        known = INDEX_VALUES["culture" if obj.endswith("Culture") else "religion"]
+    return (f"Select_CString(GreaterThan_CFixedPoint({obj}.MakeScope.ScriptValue('{known}'), '(CFixedPoint)0'), "
+            f"ToString_int32(FixedPointToInt({obj}.MakeScope.ScriptValue('{value}'))), Localize('FMX_DASH'))")
+
 
 class Col:
-    def __init__(self, key, width, kind, ru, en, tt_ru, tt_en, icon, show=None, sort=None, prefix=None, count=None):
+    def __init__(self, key, width, kind, ru, en, tt_ru, tt_en, icon, show=None, sort=None, prefix=None, count=None, tip=None):
         self.key, self.width, self.kind = key, width, kind
         self.ru, self.en, self.tt_ru, self.tt_en, self.icon = ru, en, tt_ru, tt_en, icon
         self.show, self.sort, self.prefix, self.count = show, sort, prefix, count
+        self.tip = tip          # loc key prefix of the cell's tooltip, followed by the object's atlas number
+
+
+def cultures_by_group(cultures):
+    """Culture keys under each of their groups (None: no group). A culture sits in every group it has, so a mod that
+    removes one group still leaves it findable through another."""
+    out = {}
+    for c in cultures:
+        for g in c["gk"] or [None]:
+            out.setdefault(g, []).append(c["key"])
+    return dict(sorted(out.items(), key=lambda x: x[0] is None))     # the cultures without a group last
 
 
 def lists(d, idx, cul_cont, religion_part, fam_keys):
@@ -26,13 +56,15 @@ def lists(d, idx, cul_cont, religion_part, fam_keys):
         "action": "fmx_atlas_religions", "type": "religion", "target": "InteractionTarget.GetReligion",
         "cols_file": "17_religion.txt", "filters_file": "17_religion.txt",
         "default_filter": "religion_religious_present_in_country", "filter_tag": "religion",
-        "visible": None, "cond": "this = religion:{k}", "objects": d["religions"], "okey": lambda r: r["key"],
+        # only the religions the atlas knows, as with formables
+        "visible": "\n".join(f"\t\t\t\tthis = religion:{r['key']}" for r in d["religions"]),
+        "cond": "this = religion:{k}", "objects": d["religions"], "okey": lambda r: r["key"],
         "name": ("Атлас: религии", "Atlas: religions"),
         "cols": [
             Col("fmx_rel_group", 150, "text", "Группа", "Group", "Сортировать по религиозной группе", "Sort by religion group", "group",
                 show="[InteractionTarget.GetReligion.GetGroup.GetName]", sort="[ROOT.GetReligion.GetGroup.GetNameWithNoTooltip]"),
             Col("fmx_rel_adv", 60, "sv", "Улучшения", "Advances", "Сортировать по числу религиозных улучшений",
-                "Sort by the number of religious advances", "unique_content", prefix="FMX_RA_", count=lambda r: len(r["adv"])),
+                "Sort by the number of religious advances", "unique_content", prefix="FMX_RA_", count=lambda r: len(r["adv"]), tip="FMX_RAT_"),
             Col("fmx_rel_forms", 60, "sv", "Формаблы", "Formables", "Сортировать по числу формаблов, доступных этой религии",
                 "Sort by the number of formables open to this religion", "countries", prefix="FMX_RF_",
                 count=lambda r: len([f for f in r["forms"] if f in by_id])),
@@ -42,22 +74,28 @@ def lists(d, idx, cul_cont, religion_part, fam_keys):
         "filters": [(f"fmx_religion_family_{fam}", 0, "\n".join(f"\t\t\troot.group = religion_group:{g}" for g in groups if religion_part(g) == n))
                     for n, fam in enumerate(fam_keys)],
         "key_of": lambda r: idx["r"].get(r["key"]),
+        "known": INDEX_VALUES["religion"],
     }
     L["c"] = {
         "action": "fmx_atlas_cultures", "type": "culture", "target": "InteractionTarget.GetCulture",
         "cols_file": "16_culture.txt", "filters_file": "16_culture.txt", "name_w": 170,
         "default_filter": "culture_present_in_country", "filter_tag": "culture",
-        "visible": None, "cond": "this = culture:{k}", "objects": d["cultures"], "okey": lambda c: c["key"],
+        # only the cultures the atlas knows (none from other mods or made during the game), as with formables;
+        # tested group first, so a filter change doesn't compare every culture with the whole list
+        "visible": "\n".join(f"\t\t\t\tAND = {{ has_culture_group = culture_group:{g} OR = {{ {' '.join(f'this = culture:{k}' for k in ks)} }} }}"
+                             if g else "\n".join(f"\t\t\t\tthis = culture:{k}" for k in ks)
+                             for g, ks in cultures_by_group(d["cultures"]).items()),
+        "cond": "this = culture:{k}", "objects": d["cultures"], "okey": lambda c: c["key"],
         "name": ("Атлас: культуры", "Atlas: cultures"),
         "cols": [
-            # the GUI has no getter for a culture's groups, so their links come from loc keyed by the culture's index
+            # the GUI has no getter for a culture's groups, so their links come from loc keyed by the culture's number
             Col("fmx_cul_group", 130, "text", "Группа", "Group", "Сортировать по культурной группе", "Sort by culture group", "group",
-                show="[Localize(Concatenate('FMX_CGN_', InteractionTarget.GetCulture.GetKey))]",
-                sort="[Localize(Concatenate('FMX_GI_', ROOT.GetCulture.GetKey))]"),
+                show=f"[Localize(Concatenate('FMX_CGN_', {index_text('InteractionTarget.GetCulture')}))]",
+                sort=f"[Localize(Concatenate('FMX_GI_', {index_text('ROOT.GetCulture')}))]"),
             Col("fmx_cul_lang", 100, "text", "Язык", "Language", "Сортировать по языку", "Sort by language", "language",
                 show="[InteractionTarget.GetCulture.GetLanguage.GetName]", sort="[ROOT.GetCulture.GetLanguage.GetNameWithNoTooltip]"),
             Col("fmx_cul_adv", 50, "sv", "Улучшения", "Advances", "Сортировать по числу культурных улучшений",
-                "Sort by the number of culture advances", "unique_content", prefix="FMX_CA_", count=lambda c: len(c["adv"])),
+                "Sort by the number of culture advances", "unique_content", prefix="FMX_CA_", count=lambda c: len(c["adv"]), tip="FMX_CAT_"),
             Col("fmx_cul_forms", 50, "sv", "Формаблы", "Formables", "Сортировать по числу формаблов, доступных этой культуре",
                 "Sort by the number of formables open to this culture", "countries", prefix="FMX_CF_",
                 count=lambda c: len([f for f in c["forms"] if f in by_id])),
@@ -67,6 +105,7 @@ def lists(d, idx, cul_cont, religion_part, fam_keys):
         "filters": [(f"fmx_culture_{cont}", 0, "\n".join(f"\t\t\troot = culture:{c['key']}" for c in d["cultures"] if cul_cont[c["key"]] == cont))
                     for n, cont in enumerate(["europe", "asia", "africa", "america", "oceania"])],
         "key_of": lambda c: idx["c"].get(c["key"]),
+        "known": INDEX_VALUES["culture"],
     }
     items = d["items"]
     rule_n = {"historical": 1, "plausible": 2, "fantasy": 3}
@@ -74,7 +113,9 @@ def lists(d, idx, cul_cont, religion_part, fam_keys):
         "action": "fmx_atlas_formables", "type": "formable_country", "target": "InteractionTarget.GetFormableCountry",
         "cols_file": "60_formable_country.txt", "filters_file": None,
         "default_filter": None, "filter_tag": None,
-        "visible": None, "cond": "this = formable_country:{k}", "objects": items, "okey": lambda i: i["id"],
+        # only the formables the atlas knows: one from another mod would show no data
+        "visible": "\n".join(f"\t\t\t\tthis = formable_country:{i['id']}" for i in items),
+        "cond": "this = formable_country:{k}", "objects": items, "okey": lambda i: i["id"],
         "name": ("Атлас: формируемые", "Atlas: formables"),
         "cols": [
             Col("fmx_f_tier", 70, "sv", "Тир", "Tier", "Сортировать по тиру", "Sort by tier", "rank", count=lambda i: i["level"]),
@@ -93,6 +134,7 @@ def lists(d, idx, cul_cont, religion_part, fam_keys):
                    + [(f"fmx_formable_rule_{r}", 2, "\n".join(f"\t\t\troot = formable_country:{i['id']}" for i in items if i["rule"] == r))
                       for r in rule_n],
         "key_of": lambda i: i["id"],
+        "known": "fmx_f_tier_value",
     }
     L["x"] = {
         "action": "fmx_atlas_notier", "type": "country", "target": "InteractionTarget.GetCountry",
@@ -218,11 +260,16 @@ def files(G, L):
         for c in s["cols"]:
             if c.kind == "text":
                 text = c.show
-            elif c.kind == "sv":        # the script value itself, for objects with no key getter in the GUI
+            elif c.kind == "sv" and s.get("known"):     # the script value itself, a dash for objects from other mods
+                text = f"[{known_number(s['target'], c.key + '_value', s['known'])}]"
+            elif c.kind == "sv":
                 text = f"[{s['target']}.MakeScope.ScriptValue('{c.key}_value')|0]"
             else:
                 text = f"[Localize(Concatenate('{c.prefix}', {s['target']}{s.get('loc_key', '.GetKey')}))]"
-            gui.append(f"\ttype {c.key} = select_cell_default {{\n\t\tsize = {{ {c.width} 32 }}\n"
+            # like the name cell: the action's tooltip pops out to the side, and the cell's own tooltip lists the advances
+            tip = (f"\t\tblockoverride \"interaction_target_action_provider_tooltip\" {{\n\t\t\ttooltipwidget = {{\n\t\t\t\tusing = action_tooltip_pop_out\n\t\t\t}}\n\t\t}}\n"
+                   f"\t\ttooltip = \"[Localize(Concatenate('{c.tip}', {index_text(s['target'])}))]\"\n") if c.tip else ""
+            gui.append(f"\ttype {c.key} = select_cell_default {{\n\t\tsize = {{ {c.width} 32 }}\n{tip}"
                        f"\t\tsort_by_highlight = {{\n\t\t\tsize = {{ 100% 100% }}\n\t\t\tname = \"{c.key}\"\n\t\t}}\n"
                        f"\t\thbox = {{\n\t\t\tmargin = {{ 10 0 }}\n\t\t\tlayoutpolicy_horizontal = expanding\n"
                        f"\t\t\ttext_single = {{\n\t\t\t\tlayoutpolicy_horizontal = expanding\n\t\t\t\talign = {'center|nobaseline' if c.kind != 'text' else 'nobaseline'}\n"
@@ -238,6 +285,22 @@ def files(G, L):
             branches = "".join(f"\tif = {{ limit = {{ {s['cond'].format(k=s['okey'](o))} }} value = {c.count(o)} }}\n"
                                for o in s["objects"] if c.count(o))
             sv.append(f"{c.key}_value = {{\n\tvalue = 0\n{branches}}}\n")
+        if s["type"] == "culture":
+            # by group first, like the list's visible trigger: a tooltip or a row tests about 200 groups and a dozen
+            # cultures instead of up to 2000 cultures
+            num = {o["key"]: s["key_of"](o) for o in s["objects"] if s["key_of"](o)}
+            branches = ""
+            for g, ks in cultures_by_group(s["objects"]).items():
+                inner = "".join(f"{'if' if n == 0 else 'else_if'} = {{ limit = {{ this = culture:{k} }} value = {num[k]} }} "
+                                for n, k in enumerate(k for k in ks if k in num))
+                branches += (f"\tif = {{ limit = {{ has_culture_group = culture_group:{g} }} {inner}}}\n" if g else
+                             "".join(f"\tif = {{ limit = {{ this = culture:{k} }} value = {num[k]} }}\n" for k in ks if k in num))
+            sv.append(f"{INDEX_VALUES['culture']} = {{\n\tvalue = 0\n{branches}}}\n")
+        elif s["type"] in INDEX_VALUES:
+            # first match wins: one culture tooltip doesn't walk the whole list
+            branches = "".join(f"\t{'if' if n == 0 else 'else_if'} = {{ limit = {{ {s['cond'].format(k=s['okey'](o))} }} value = {s['key_of'](o)} }}\n"
+                               for n, o in enumerate(o for o in s["objects"] if s["key_of"](o)))
+            sv.append(f"{INDEX_VALUES[s['type']]} = {{\n\tvalue = 0\n{branches}}}\n")
         if s["type"] == "country":
             # 1-based position of a nation without a tier (0 for any other country): the GUI turns it into the loc key
             # of the atlas block in the country tooltip, since a country's tag can't be used to build a key there
@@ -270,7 +333,7 @@ def files(G, L):
 
 def loc(lang, L, filter_names):
     ru = lang == RU
-    out = {"FMX_XI_0": "", "FMX_NATIVE_HINT": "Список откроется в окне игры: сортировка по любой колонке, поиск и фильтры (кнопка-воронка). Наведите на название — откроется карточка с данными атласа."
+    out = {"FMX_XI_0": "", "FMX_DASH": "—", "FMX_NATIVE_HINT": "Список откроется в окне игры: сортировка по любой колонке, поиск и фильтры (кнопка-воронка). Наведите на название — откроется карточка с данными атласа."
             if ru else "The list opens in the game's own window: sort by any column, search and filters (funnel button). Hover a name for its card with the atlas data."}
     for t, s in L.items():
         name = s["name"][0 if ru else 1]

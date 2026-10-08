@@ -30,5 +30,10 @@ attribute columns and filters. The tooltip templates it extends (formablecountry
 culture_tooltip, religion_tooltip, religion_group_tooltip) are replaced by name from `fmx_*_tooltips.gui`, so the rest
 of the game's tooltip files (Glorp UI's CountryTooltip, for one) is left to other mods in any load order.
 
+The atlas data comes from the base game. Formables, cultures and religions added by other mods are left out of the
+atlas lists (the game's own Formables panel and Journal still have them; the Journal shows "—" in the atlas columns); cultures and religions are matched by key through script values
+(`fmx_cul_index_value`, `fmx_rel_index_value`), so a mod that adds a culture or religion file doesn't shift the
+tooltips.
+
 The build stops when a localization key of the mod shares its MurmurHash3 with a game key: the game then shows one
 key's text for the other. The local build is named "Formables Atlas [LOCAL]"; `upload_item.py` takes the mark off.
