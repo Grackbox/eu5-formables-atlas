@@ -940,7 +940,7 @@ def main():
             shutil.copyfile(text[1], target)
         else:
             write(target, text, bom=path.endswith(".txt"))
-    meta = {"name": "Formables Atlas [LOCAL]", "id": "grackbox.formables_atlas", "version": "1.0.4", "game_id": "eu5",
+    meta = {"name": "Formables Atlas [LOCAL]", "id": "grackbox.formables_atlas", "version": "1.0.5", "game_id": "eu5",
             "supported_game_version": "1.4.*", "short_description": "In-game atlas of formable nations, cultures and religions.",
             "tags": ["Utilities", "User Interface", "1.4"], "relationships": [], "game_custom_data": {}}
     write(os.path.join(OUT, ".metadata", "metadata.json"), json.dumps(meta, indent=4, ensure_ascii=False) + "\n", bom=True)
