@@ -666,7 +666,7 @@ def form_panel_override(shape):
 			}
 		}
 '''
-    assert anchor in src, "form_new_country.gui changed: update the anchor"
+    assert src.count(anchor) == 1, "form_new_country.gui changed: update the anchor"
     # Formables Atlas: one button per list, each opening the game's own list straight away
     buttons = "\n".join(
         f'\t\t\tbutton_regular = {{ layoutpolicy_horizontal = expanding size = {{ -1 28 }} text = "FMX_NATIVE_{t.upper()}" '
@@ -742,9 +742,15 @@ def matched_blocks(indent, obj, keys, prefix):
         f"blockoverride \"text\" {{ text = \"{prefix}{k}\" max_width = {BLOCK_W} fontsize = 15 }} }}\n" for k in keys)
 
 
+def find_once(src, needle, name):
+    """Where `needle` is in `src`, which must hold it exactly once (a game patch may move it or add another)."""
+    assert src.count(needle) == 1, f"{name} changed: {needle!r} is there {src.count(needle)} times"
+    return src.index(needle)
+
+
 def insert_in_template(src, template, anchor, text):
     """Puts text before the line holding `anchor`, inside `template`."""
-    start = src.index(f"template {template} {{")
+    start = find_once(src, f"template {template} {{", template)
     at = src.index(anchor, start)
     at = src.rindex("\n", 0, at) + 1
     return src[:at] + text + src[at:]
@@ -752,7 +758,7 @@ def insert_in_template(src, template, anchor, text):
 
 def template_text(src, template):
     """The whole top-level `template <name> { ... }` block."""
-    start = src.index(f"template {template} {{")
+    start = find_once(src, f"template {template} {{", template)
     depth = 0
     for at in range(src.index("{", start), len(src)):
         depth += {"{": 1, "}": -1}.get(src[at], 0)
@@ -770,7 +776,7 @@ def tooltip_overrides(formables, groups):
 
     src = open(G + "in_game/gui/shared/society_tooltips.gui", encoding="utf-8-sig").read().replace("\r", "")
     src = insert_in_template(src, "culture_group_tooltip", "TooltipFlavorTextBlock = {", matched_blocks(3, "CultureGroup", groups, "FMX_CG_"))
-    start = src.index("template culture_tooltip {")
+    start = find_once(src, "template culture_tooltip {", "society_tooltips.gui")
     anchor = src.index("using = culture_tooltip_content", start)
     close = src.index("}\n", anchor) + 2               # end of the TooltipContentSection
     src = src[:close] + atlas_block(3, "FMX_CU_", native_lists.index_text("Culture")) + src[close:]
@@ -871,10 +877,10 @@ def ledger_overrides():
     files["religions_ledger.gui"] = src
 
     src = open(G + "in_game/gui/cultures_ledger.gui", encoding="utf-8-sig").read().replace("\r", "")
-    at = src.index('name = "country"')
-    at = src.rindex("\n", 0, src.rindex("sort_by_key_button", 0, at)) + 1
+    at = find_once(src, 'sort_by_key_button = {\n\t\t\t\t\t\t\tname = "country"', "cultures_ledger.gui")
+    at = src.rindex("\n", 0, at) + 1
     src = src[:at] + ledger_headers(6) + src[at:]
-    at = src.index("country_flag_small = {", src.index("CultureItem.GetCulture.GetTradition"))
+    at = src.index("country_flag_small = {", find_once(src, "CultureItem.GetCulture.GetTradition", "cultures_ledger.gui"))
     at = src.rindex("\n", 0, at) + 1
     src = src[:at] + ledger_cells(10, ["fmx_cul_adv_value", "fmx_cul_forms_value", "fmx_cul_st_value"], "CultureItem.GetCulture") + src[at:]
     files["cultures_ledger.gui"] = src

@@ -311,6 +311,7 @@ def files(G, L):
         # the game's filter file is overridden only to switch its default filter off; ours live in a file of their own
         if s["default_filter"]:
             flt = open(G + "in_game/gui/filters/" + s["filters_file"], encoding="utf-8-sig").read().replace("\r", "")
+            assert flt.count(s["default_filter"] + " = {") == 1, f"{s['filters_file']} changed: {s['default_filter']}"
             start = flt.index(s["default_filter"] + " = {")
             at = flt.index("enabled_at_start = yes", start)
             out[f"in_game/gui/filters/{s['filters_file']}"] = flt[:at] + "enabled_at_start = no" + flt[at + len("enabled_at_start = yes"):]
