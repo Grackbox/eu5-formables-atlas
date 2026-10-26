@@ -35,5 +35,11 @@ atlas lists (the game's own Formables panel and Journal still have them; the Jou
 (`fmx_cul_index_value`, `fmx_rel_index_value`), so a mod that adds a culture or religion file doesn't shift the
 tooltips.
 
+The numbers of cultures and religions are also kept as variables of each culture and religion
+(`scripted_effects/fmx_values.txt`), since their rows in the atlas lists and the Journal read several of them every
+frame. The game fills them when it starts, and in a save from before them or from another build of the atlas at the
+player's next monthly tick (no hook runs on loading a save); until then the script values work the numbers out from
+their tables, as they do for nations and formables (`global_var:fmx_values` holds the stamp of the numbers).
+
 The build stops when a localization key of the mod shares its MurmurHash3 with a game key: the game then shows one
 key's text for the other. The local build is named "Formables Atlas [LOCAL]"; `upload_item.py` takes the mark off.

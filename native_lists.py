@@ -3,8 +3,12 @@
 Each list is a generic action that does nothing, with a select_trigger over every object of the type. The atlas adds
 columns (attribute_columns + their widgets) whose numbers come from the site data: shown through loc keys keyed by the
 object's key, sorted through script values. Continent/family filters are added to the game's scripted filters.
+
+The script values are tables (the first matching object wins). Cultures and religions also keep their numbers in
+variables (fmx_fill_values), since their rows read several values every frame, in the atlas lists and in the Journal.
 """
 
+import hashlib
 import re
 
 RU = "russian"
@@ -12,6 +16,46 @@ RU = "russian"
 # A culture's or religion's atlas number (1, 2, ...; 0 for one the atlas doesn't know: from another mod, or made during
 # the game). Culture.GetKey gives the load index instead, and that moves when another mod adds a culture file.
 INDEX_VALUES = {"culture": "fmx_cul_index_value", "religion": "fmx_rel_index_value"}
+
+# The types whose script values read the variables fmx_fill_values keeps on each object. The game fills them when it
+# starts (on_game_start), and in a save from before them or from another build at the player's next monthly tick (no
+# hook runs on loading a save); until then, and for objects the atlas doesn't know, the values come from the tables.
+CACHED = ("culture", "religion")
+
+
+def script_value(name, branches, stamp=None):
+    """A script value worked out from its table; with `stamp`, read from the object's variable of the same name (without
+    "_value") when this build filled it (global_var:fmx_values = stamp)."""
+    if stamp is None:
+        return f"{name} = {{\n\tvalue = 0\n{branches}}}\n"
+    var = name.removesuffix("_value")
+    table = "".join(f"\t{line}\n" for line in branches.splitlines())
+    return (f"{name} = {{\n\tvalue = 0\n\tif = {{\n\t\tlimit = {{\n\t\t\tglobal_var:fmx_values ?= {stamp}\n\t\t\thas_variable = {var}\n"
+            f"\t\t}}\n\t\tvalue = var:{var}\n\t}}\n\telse = {{\n{table}\t}}\n}}\n")
+
+
+def fill_values(L):
+    """The scripted effect that sets each known culture's and religion's numbers as its variables, the on_actions that
+    run it, and the stamp of these numbers."""
+    rows = []
+    for s in (L[t] for t in L if L[t]["type"] in CACHED):
+        index = INDEX_VALUES[s["type"]].removesuffix("_value")
+        for o in s["objects"]:
+            sets = [f"set_variable = {{ name = {index} value = {s['key_of'](o) or 0} }}"]
+            sets += [f"set_variable = {{ name = {c.key} value = {c.count(o)} }}" for c in s["cols"] if c.kind == "sv"]
+            rows.append(f"\t{s['type']}:{s['okey'](o)} = {{ {' '.join(sets)} }}\n")
+    stamp = int(hashlib.sha1("".join(rows).encode()).hexdigest(), 16) % 1000000
+    effect = ("# Formables Atlas: the numbers the culture and religion lists show, as variables of each culture and religion\n"
+              "# (on_action/fmx_on_actions.txt, script_values/fmx_culture_values.txt, fmx_religion_values.txt)\n"
+              f"fmx_fill_values = {{\n{''.join(rows)}\tset_global_variable = {{ name = fmx_values value = {stamp} }}\n}}\n")
+    on_actions = ("# Formables Atlas: fills the culture and religion numbers (scripted_effects/fmx_values.txt) when a game starts, and in\n"
+                  "# a save from before them or from another build of the atlas at the player's next monthly tick\n"
+                  "on_game_start = {\n\ton_actions = {\n\t\tfmx_fill_values_at_start\n\t}\n}\n\n"
+                  "monthly_country_pulse = {\n\ton_actions = {\n\t\tfmx_fill_values_monthly\n\t}\n}\n\n"
+                  "fmx_fill_values_at_start = {\n\teffect = {\n\t\tfmx_fill_values = yes\n\t}\n}\n\n"
+                  f"fmx_fill_values_monthly = {{\n\ttrigger = {{\n\t\tis_ai = no\n\t\tNOT = {{ global_var:fmx_values ?= {stamp} }}\n\t}}\n"
+                  "\teffect = {\n\t\tfmx_fill_values = yes\n\t}\n}\n")
+    return effect, on_actions, stamp
 
 
 def index_text(obj):
@@ -204,6 +248,9 @@ def name_col(s):
 def files(G, L):
     out = {}
     actions = []
+    effect, on_actions, stamp = fill_values(L)
+    out["in_game/common/scripted_effects/fmx_values.txt"] = effect
+    out["in_game/common/on_action/fmx_on_actions.txt"] = on_actions
     for t, s in L.items():
         visible = f"\t\tvisible = {{\n\t\t\tOR = {{\n{s['visible']}\n\t\t\t}}\n\t\t}}\n" if s["visible"] else ""
         cols = "".join(f"\t\tcolumn = {{\n\t\t\tdata = {k}\n\t\t}}\n" for k in [name_col(s)] + s.get("extra_cols", []) + [c.key for c in s["cols"]])
@@ -277,14 +324,17 @@ def files(G, L):
         gui.append("}\n")
         out[f"in_game/gui/attribute_columns/fmx_{s['type']}.gui"] = "\n".join(gui)
 
-        # script values for the numeric sorts
+        # script values for the numeric sorts: each condition is one object, so the first match is the only one
+        keys = [s["okey"](o) for o in s["objects"]]
+        assert len(set(keys)) == len(keys), f"{s['type']}: an object is listed twice"
+        cached = stamp if s["type"] in CACHED else None
         sv = []
         for c in s["cols"]:
             if c.kind == "text":
                 continue
-            branches = "".join(f"\tif = {{ limit = {{ {s['cond'].format(k=s['okey'](o))} }} value = {c.count(o)} }}\n"
-                               for o in s["objects"] if c.count(o))
-            sv.append(f"{c.key}_value = {{\n\tvalue = 0\n{branches}}}\n")
+            branches = "".join(f"\t{'if' if n == 0 else 'else_if'} = {{ limit = {{ {s['cond'].format(k=s['okey'](o))} }} value = {c.count(o)} }}\n"
+                               for n, o in enumerate(o for o in s["objects"] if c.count(o)))
+            sv.append(script_value(f"{c.key}_value", branches, cached))
         if s["type"] == "culture":
             # by group first, like the list's visible trigger: a tooltip or a row tests about 200 groups and a dozen
             # cultures instead of up to 2000 cultures
@@ -295,17 +345,18 @@ def files(G, L):
                                 for n, k in enumerate(k for k in ks if k in num))
                 branches += (f"\tif = {{ limit = {{ has_culture_group = culture_group:{g} }} {inner}}}\n" if g else
                              "".join(f"\tif = {{ limit = {{ this = culture:{k} }} value = {num[k]} }}\n" for k in ks if k in num))
-            sv.append(f"{INDEX_VALUES['culture']} = {{\n\tvalue = 0\n{branches}}}\n")
+            sv.append(script_value(INDEX_VALUES["culture"], branches, cached))
         elif s["type"] in INDEX_VALUES:
             # first match wins: one culture tooltip doesn't walk the whole list
             branches = "".join(f"\t{'if' if n == 0 else 'else_if'} = {{ limit = {{ {s['cond'].format(k=s['okey'](o))} }} value = {s['key_of'](o)} }}\n"
                                for n, o in enumerate(o for o in s["objects"] if s["key_of"](o)))
-            sv.append(f"{INDEX_VALUES[s['type']]} = {{\n\tvalue = 0\n{branches}}}\n")
+            sv.append(script_value(INDEX_VALUES[s["type"]], branches, cached))
         if s["type"] == "country":
             # 1-based position of a nation without a tier (0 for any other country): the GUI turns it into the loc key
             # of the atlas block in the country tooltip, since a country's tag can't be used to build a key there
-            branches = "".join(f"\tif = {{ limit = {{ tag = {o['tag']} }} value = {n + 1} }}\n" for n, o in enumerate(s["objects"]))
-            sv.append(f"fmx_x_index_value = {{\n\tvalue = 0\n{branches}}}\n")
+            branches = "".join(f"\t{'if' if n == 0 else 'else_if'} = {{ limit = {{ tag = {o['tag']} }} value = {n + 1} }}\n"
+                               for n, o in enumerate(s["objects"]))
+            sv.append(script_value("fmx_x_index_value", branches))
         out[f"in_game/common/script_values/fmx_{s['type']}_values.txt"] = "\n".join(sv)
 
         # the game's filter file is overridden only to switch its default filter off; ours live in a file of their own
